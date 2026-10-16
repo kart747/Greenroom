@@ -6,8 +6,8 @@ Every performer gets a green room to prepare before going on stage. Greenroom is
 that space for English learners: an offline, open-source English speaking coach.
 You talk to a character (a friendly buddy, an HR interviewer, a visa officer); a
 local LLM plays the role while NLP analyzers quietly measure your English in the
-background. At the end you get a
-feedback report, and every session is saved so progress can be tracked over time.
+background. At the end you get a feedback report, and every session is saved so
+progress can be tracked over time.
 
 Everything runs on your machine: no accounts, no cloud APIs.
 
