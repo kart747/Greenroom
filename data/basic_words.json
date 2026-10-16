@@ -1,0 +1,20 @@
+{
+  "_comment": "Overused basic words (by lemma) -> richer alternatives. Classical baseline: a hand-curated lexicon. Extend freely; later replace/augment with CEFR lists.",
+  "words": {
+    "good": ["great", "excellent", "impressive", "enjoyable", "valuable"],
+    "nice": ["pleasant", "lovely", "friendly", "charming", "kind"],
+    "bad": ["poor", "disappointing", "unpleasant", "terrible", "harmful"],
+    "big": ["large", "huge", "enormous", "significant", "major"],
+    "small": ["tiny", "little", "compact", "minor", "slight"],
+    "happy": ["glad", "delighted", "pleased", "thrilled", "cheerful"],
+    "sad": ["upset", "unhappy", "disappointed", "heartbroken", "down"],
+    "thing": ["item", "object", "matter", "issue", "aspect"],
+    "stuff": ["things", "items", "material", "belongings"],
+    "get": ["receive", "obtain", "earn", "become", "understand"],
+    "interesting": ["fascinating", "engaging", "intriguing", "absorbing"],
+    "beautiful": ["stunning", "gorgeous", "picturesque", "elegant"],
+    "hard": ["difficult", "challenging", "tough", "demanding"],
+    "easy": ["simple", "straightforward", "effortless", "manageable"]
+  },
+  "intensifiers": ["very", "really", "so", "too"]
+}

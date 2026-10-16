@@ -1,0 +1,7 @@
+spacy>=3.7
+requests>=2.31
+pytest>=8.0
+# after install: python -m spacy download en_core_web_sm
+# LLM: install Ollama (https://ollama.com), then: ollama pull qwen2.5:3b
+# coming next: faster-whisper (speech-to-text), kokoro-onnx (text-to-speech)
+# for your BERT ranker: transformers, torch
