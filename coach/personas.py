@@ -2,6 +2,9 @@
 
 Adding a character = adding a JSON file. The system prompt is built here so
 every character follows the same coaching rules.
+
+This module also decides WHICH characters a learner sees (by their goal) and
+in WHICH accent each one speaks (by their accent setting).
 """
 
 from __future__ import annotations
@@ -50,3 +53,40 @@ def load_personas(directory: Path = PERSONA_DIR) -> dict[str, Persona]:
         p = Persona(**json.loads(path.read_text()))
         personas[p.id] = p
     return personas
+
+
+GOALS = ["placements", "study_abroad", "job", "general"]
+
+# Where a study-abroad learner is going -> the accent they will hear there.
+DESTINATION_ACCENT = {
+    "uk": "british", "ireland": "british", "australia": "british", "new zealand": "british",
+    "usa": "american", "us": "american", "canada": "american",
+}
+
+
+def personas_for_goal(personas: dict[str, Persona], goal: str | None) -> list[Persona]:
+    """Characters for this goal, plus the "general" ones everybody can use.
+    No goal yet (before onboarding) -> everyone."""
+    if not goal:
+        return list(personas.values())
+    return [p for p in personas.values() if goal in p.goals or "general" in p.goals]
+
+
+def resolve_voice(persona: Persona, profile: dict | None) -> str:
+    """Pick the voice key (e.g. "british_female") for this learner.
+
+    1. An explicit accent choice (american / british) wins.
+    2. "auto" + study_abroad -> the accent of the destination country,
+       because that is the English the learner must get used to.
+    3. Otherwise the persona's own default.
+    The persona's gender is always kept: Mr. Rao stays male whatever the accent.
+    """
+    profile = profile or {}
+    default_accent, gender = persona.voice.split("_", 1)
+    accent = profile.get("accent", "auto")
+    if accent not in ("american", "british"):
+        accent = default_accent
+        if profile.get("goal") == "study_abroad":
+            dest = (profile.get("destination") or "").strip().lower()
+            accent = DESTINATION_ACCENT.get(dest, default_accent)
+    return f"{accent}_{gender}"

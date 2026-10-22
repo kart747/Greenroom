@@ -6,6 +6,15 @@ pytest>=8.0
 faster-whisper>=1.1
 # text-to-speech (Kokoro 82M on onnxruntime, CPU)
 kokoro-onnx>=0.4
+# the app: local web server + desktop window
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
+pywebview>=5.0
+# pywebview's Qt backend (pip-installable; grants the page microphone access)
+PyQt6>=6.6
+PyQt6-WebEngine>=6.6
+qtpy>=2.4
 # after install:
 #   python -m spacy download en_core_web_sm
 #   python -m coach.tts --download        (Kokoro model into models/)

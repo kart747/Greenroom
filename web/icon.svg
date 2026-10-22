@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- A speech bubble with a leaf: rehearse (speak) + green room. -->
+  <rect x="4" y="6" width="56" height="42" rx="14" fill="#2f7d5b"/>
+  <path d="M18 46 L14 58 L28 47 Z" fill="#2f7d5b"/>
+  <path d="M22 34 C22 20 34 14 46 14 C46 28 38 36 24 36 Z" fill="#e8f5ee"/>
+  <path d="M24 35 C30 28 36 23 43 18" stroke="#2f7d5b" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+</svg>
