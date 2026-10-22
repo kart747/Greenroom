@@ -16,6 +16,7 @@ API overview (all JSON unless noted):
   GET  /api/reports/{db_id}         reopen an old report
   GET  /api/progress                trends over all sessions
   GET  /api/review/due              flashcards due now
+  POST /api/review/{card_id}        grade a card (0/3/4/5), reschedules it with SM-2
 
 Why the turn endpoint streams NDJSON (one JSON object per line): the browser
 can act on each event as soon as it arrives (show the transcript, play the
@@ -44,8 +45,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .analyzers import default_analyzers
+from . import srs
 from .engines import Engines
 from .errors import Unavailable
+from .exercises import build_exercises
 from .personas import GOALS, Persona, load_personas, personas_for_goal, resolve_voice
 from .progress import progress
 from .report import report_payload, summarize
@@ -80,6 +83,10 @@ class ProfileIn(BaseModel):
 
 class StartIn(BaseModel):
     persona_id: str
+
+
+class GradeIn(BaseModel):
+    grade: int
 
 
 def create_app(cfg: dict, engines: Engines, storage: Storage,
@@ -172,7 +179,9 @@ def create_app(cfg: dict, engines: Engines, storage: Storage,
         if not record["turns"]:
             return {"empty": True}
         summary = summarize(record)
+        summary["exercises"] = build_exercises(record)
         db_id = storage.save_session(record, summary)
+        _make_cards(storage, record)
         return _named({"id": db_id, **report_payload(record, summary)})
 
     @app.get("/api/reports/{db_id}")
@@ -192,6 +201,17 @@ def create_app(cfg: dict, engines: Engines, storage: Storage,
     @app.get("/api/review/due")
     def review_due():
         return {"cards": storage.due_cards()}
+
+    @app.post("/api/review/{card_id}")
+    def grade_card(card_id: int, body: GradeIn):
+        card = storage.get_card(card_id)
+        if card is None:
+            raise HTTPException(404, "No such card.")
+        if body.grade not in srs.GRADES:
+            raise HTTPException(422, "Grade must be 0, 3, 4 or 5.")
+        ease, interval, reps, due = srs.review(card["ease"], card["interval"], card["reps"], body.grade)
+        storage.update_schedule(card_id, ease, interval, reps, due)
+        return {"id": card_id, "ease": ease, "interval": interval, "reps": reps, "due": due}
 
     # ---- helpers ------------------------------------------------------
     def _named(item: dict) -> dict:
@@ -234,6 +254,20 @@ def _run_turn(ls: LiveSession, audio: bytes | None, text: str | None, events: qu
         finally:
             gen.close()    # on abort: stops the LLM request and keeps the partial reply
             events.put(None)
+
+
+def _make_cards(storage: Storage, record: dict) -> None:
+    """Every flagged vocabulary span becomes a flashcard (or refreshes its
+    example if the card already exists). The learner's own sentence is the
+    example, so the card reminds them where they used the weak word."""
+    for turn in record["turns"]:
+        for res in turn["results"]:
+            if res["analyzer"] != "vocabulary":
+                continue
+            for f in res["findings"]:
+                if f["suggestions"]:
+                    storage.add_card(f["text"], {"suggestions": f["suggestions"], "message": f["message"],
+                                                 "example": turn["text"], "kind": f["kind"]})
 
 
 def _encode(ev: dict) -> dict:

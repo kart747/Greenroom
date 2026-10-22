@@ -41,7 +41,11 @@ class FluencyAnalyzer(Analyzer):
 
         # 3. immediate repetition ("I I", "the the")
         for i in range(len(words) - 1):
-            if lower[i] == lower[i + 1] and lower[i] not in FILLER_WORDS and lower[i] not in {"very", "really", "so", "no", "bye", "ha"}:
+            # "help you, you know": the second "you" starts the filler phrase
+            # "you know" (reported above), it is not a stumble. Punctuation can't
+            # decide this, because speech-recognition commas are guesses.
+            starts_filler = i + 2 < len(words) and (lower[i + 1], lower[i + 2]) in FILLER_PHRASES
+            if not starts_filler and lower[i] == lower[i + 1] and lower[i] not in FILLER_WORDS and lower[i] not in {"very", "really", "so", "no", "bye", "ha"}:
                 findings.append(self._finding("repetition", doc, words[i].i, words[i + 1].i + 1,
                     f'Repeated "{words[i].text}". Try to restart the sentence calmly instead.'))
 

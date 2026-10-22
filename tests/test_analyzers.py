@@ -47,3 +47,12 @@ def test_finding_offsets_match_text():
     r = VocabularyAnalyzer().analyze(preprocess(text))
     for f in r.findings:
         assert text[f.start:f.end] == f.text
+
+
+def test_fluency_repetition_vs_filler_phrase():
+    # the second "you" starts the filler "you know": not a stumble
+    r = FluencyAnalyzer().analyze(preprocess("He can help you, you know."))
+    assert texts(r, "repetition") == []
+    assert texts(r, "filler_phrase") == ["you know"]
+    # a real stumble still counts, even if the transcript put a comma in it
+    assert texts(FluencyAnalyzer().analyze(preprocess("I, I think so.")), "repetition") == ["I, I"]
