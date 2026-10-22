@@ -37,6 +37,7 @@ class Session:
         self.messages = [{"role": "system", "content": persona.system_prompt(level)},
                          {"role": "assistant", "content": persona.opening}]
         self.turns: list[Turn] = []
+        self.latencies: list[dict] = []
         self._pending: list[tuple[Turn, Future]] = []
         self._pool = ThreadPoolExecutor(max_workers=1)  # spaCy isn't thread-safe; 1 worker keeps order
         self.started = time.time()
@@ -53,10 +54,20 @@ class Session:
         self.messages.append({"role": "user", "content": text})
 
         reply = []
-        for chunk in self.llm.stream_chat(self.messages):
-            reply.append(chunk)
-            yield chunk
-        self.messages.append({"role": "assistant", "content": "".join(reply)})
+        try:
+            for chunk in self.llm.stream_chat(self.messages):
+                reply.append(chunk)
+                yield chunk
+        finally:
+            # Barge-in closes this generator early (the learner started talking).
+            # Keep the part of the reply that was already produced, so the
+            # coach's memory of the conversation matches what the learner heard.
+            if reply:
+                self.messages.append({"role": "assistant", "content": "".join(reply)})
+
+    def add_latency(self, timings: dict) -> None:
+        """Store one turn's timings (from the voice pipeline) for the session record."""
+        self.latencies.append(timings)
 
     def _analyze(self, text: str) -> list[AnalyzerResult]:
         doc = preprocess(text)
@@ -76,6 +87,7 @@ class Session:
             "turns": [{"text": t.text, "results": [r.to_dict() for r in t.results]}
                       for t in self.turns],
             "transcript": self.messages[1:],
+            "latency": {"turns": self.latencies, "average": average_latency(self.latencies)},
         }
 
     @staticmethod
@@ -84,3 +96,11 @@ class Session:
         path = directory / f"session_{int(record['started'])}_{record['persona']}.json"
         path.write_text(json.dumps(record, indent=2))
         return path
+
+
+def average_latency(turns: list[dict]) -> dict[str, float]:
+    """Mean of each numeric timing, over the turns that have it (a typed turn has
+    no stt_s; a turn without voice output has no tts_first_audio_s)."""
+    keys = {k for t in turns for k, v in t.items() if isinstance(v, (int, float)) and not isinstance(v, bool)}
+    return {k: round(sum(t[k] for t in turns if k in t) / sum(1 for t in turns if k in t), 3)
+            for k in sorted(keys)}

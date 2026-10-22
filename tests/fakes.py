@@ -1,0 +1,46 @@
+"""Stand-ins for the real models, so the whole suite runs without a GPU, a mic,
+Ollama or any downloads. Each fake has the same method the real engine has."""
+
+from __future__ import annotations
+
+
+class FakeLLM:
+    """Replaces OllamaChat: streams a fixed reply in small pieces, like Ollama does."""
+
+    def __init__(self, reply: str = "That sounds great! Tell me more about it?"):
+        self.reply = reply
+        self.seen: list[list[dict]] = []
+
+    def stream_chat(self, messages):
+        self.seen.append(list(messages))
+        for word in self.reply.split(" "):
+            yield word + " "
+
+    def check(self):
+        pass
+
+
+class FakeSTT:
+    """Replaces WhisperSTT: 'hears' a fixed sentence."""
+
+    def __init__(self, text: str = "Umm the trip was very good."):
+        self.text = text
+        self.calls = 0
+
+    def transcribe_bytes(self, data: bytes) -> str:
+        self.calls += 1
+        return self.text
+
+
+class FakeTTS:
+    """Replaces KokoroTTS: returns a tiny valid WAV and remembers what it spoke."""
+
+    def __init__(self):
+        self.spoken: list[tuple[str, str]] = []
+
+    def synthesize(self, text: str, voice: str) -> bytes:
+        import numpy as np
+
+        from coach.tts import to_wav
+        self.spoken.append((text, voice))
+        return to_wav(np.zeros(240, dtype="float32"), 24000)

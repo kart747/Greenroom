@@ -10,7 +10,8 @@ from spacy.tokens import Doc
 
 from .base import Analyzer, AnalyzerResult, Finding
 
-FILLER_WORDS = {"um", "umm", "uh", "uhh", "er", "erm", "hmm", "ah"}
+# "hum" and "mm" are how Whisper often spells a hesitation "hmm".
+FILLER_WORDS = {"um", "umm", "uh", "uhh", "er", "erm", "hmm", "hum", "mm", "ah"}
 FILLER_PHRASES = [("you", "know"), ("i", "mean"), ("kind", "of"), ("sort", "of")]
 
 

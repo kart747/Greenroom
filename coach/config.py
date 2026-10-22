@@ -29,6 +29,17 @@ CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.json"
 BASE_DEFAULTS: dict = {
     "llm": {"model": "qwen2.5:3b", "host": "http://localhost:11434", "temperature": 0.7},
     "stt": {"whisper_size": "base", "device": "cpu", "compute_type": "int8"},
+    # Kokoro runs on the CPU (onnxruntime), so it never competes with the LLM for VRAM.
+    # A persona's "voice" field (e.g. "british_male") is looked up in this map.
+    "tts": {
+        "speed": 1.0,
+        "voices": {
+            "american_female": "af_heart",
+            "american_male": "am_michael",
+            "british_female": "bf_emma",
+            "british_male": "bm_george",
+        },
+    },
 }
 
 

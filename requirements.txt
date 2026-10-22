@@ -1,7 +1,13 @@
 spacy>=3.7
 requests>=2.31
+numpy>=1.26
 pytest>=8.0
-# after install: python -m spacy download en_core_web_sm
+# speech-to-text (Whisper on CTranslate2; decodes webm/opus with PyAV)
+faster-whisper>=1.1
+# text-to-speech (Kokoro 82M on onnxruntime, CPU)
+kokoro-onnx>=0.4
+# after install:
+#   python -m spacy download en_core_web_sm
+#   python -m coach.tts --download        (Kokoro model into models/)
+#   python -m coach.stt --download        (Whisper model into models/)
 # LLM: install Ollama (https://ollama.com), then: ollama pull qwen2.5:3b
-# coming next: faster-whisper (speech-to-text), kokoro-onnx (text-to-speech)
-# for your BERT ranker: transformers, torch
