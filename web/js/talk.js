@@ -1,5 +1,11 @@
 // The conversation screen.
 //
+// Two ways to talk:
+//   push-to-talk  hold the mic button (or Space); release to send
+//   hands-free    toggle on; the voice-activity detector in vad.js starts and
+//                 stops recording by itself, and speaking while the coach
+//                 talks interrupts it (barge-in)
+//
 // One turn, as the learner sees it:
 //   listening  -> the mic button is held (or hands-free hears speech)
 //   thinking   -> recording sent; waiting for the transcript and first sentence
@@ -14,11 +20,13 @@
 
 import { api, readEvents, sendJSON } from "./api.js";
 import { Mic, CoachPlayer, audioContext } from "./audio.js";
+import { EnergyVAD } from "./vad.js";
 import { esc, toast, state, getStatus } from "./app.js";
 
 const MIC_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
   <rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>`;
 const MIN_RECORDING_MS = 350;   // shorter presses are accidental taps, not speech
+const PTT_HINT = "Hold the button (or Space) while you speak, or tap once to start and again to stop.";
 
 export async function startTalk(view, personaId) {
   const status = getStatus() || {};
@@ -48,7 +56,8 @@ export async function startTalk(view, personaId) {
           <button class="mic" id="mic" aria-label="Hold to talk" ${voiceIn ? "" : "disabled"}>${MIC_SVG}</button>
           <span style="width:140px"></span>
         </div>
-        <div class="mic-hint" id="hint">${voiceIn ? "Hold the button (or Space) while you speak, or tap once to start and again to stop." : ""}</div>
+        <div class="mic-hint" id="hint">${voiceIn ? PTT_HINT : ""}</div>
+        ${voiceIn ? `<label class="switch" style="justify-self:center"><input type="checkbox" id="handsfree"> Hands-free (just talk, pause to finish)</label>` : ""}
         <form class="typebox" id="typebox"><input type="text" id="typed" placeholder="Or type your answer..." autocomplete="off" aria-label="Type your answer">
           <button type="submit">Send</button></form>
       </div>
@@ -64,6 +73,7 @@ export async function startTalk(view, personaId) {
   let pressStart = 0;
   let tapMode = false;         // a quick tap starts recording; the next tap stops it
   let meterTimer = null;
+  let vad = null;              // set while hands-free mode is on
 
   // ---- UI state ----
   const LABEL = { idle: "Your turn", listening: "Listening...", thinking: "Thinking...", speaking: `${persona.name} is speaking` };
@@ -71,6 +81,10 @@ export async function startTalk(view, personaId) {
     stateEl.dataset.state = s;
     stateEl.querySelector("span").textContent = LABEL[s];
     busy = s === "thinking" || s === "speaking";
+    // Hands-free: don't listen while waiting for the reply (a "hmm" during the
+    // wait would become a new turn), but DO listen while the coach speaks, so
+    // the learner can interrupt it.
+    if (vad) s === "thinking" ? vad.pause() : vad.resume();
   }
   function bubble(cls, text) {
     const b = document.createElement("div");
@@ -157,7 +171,7 @@ export async function startTalk(view, personaId) {
 
   // ---- push-to-talk ----
   async function beginRecording() {
-    if (ended || mic.recording) return;
+    if (ended || mic.recording || vad) return;
     try {
       await mic.open();
     } catch (err) {
@@ -179,7 +193,7 @@ export async function startTalk(view, personaId) {
     $("meter").style.width = "0";
     micBtn.classList.remove("recording");
     tapMode = false;
-    hint.textContent = "Hold the button (or Space) while you speak, or tap once to start and again to stop.";
+    hint.textContent = PTT_HINT;
     const blob = await mic.stop();
     if (!blob || ms < MIN_RECORDING_MS) { setState("idle"); return; }
     sendTurn({ blob });
@@ -217,6 +231,48 @@ export async function startTalk(view, personaId) {
   document.addEventListener("keydown", onKey);
   document.addEventListener("keyup", onKey);
 
+  // ---- hands-free ----
+  async function startHandsFree() {
+    try {
+      await mic.open();
+    } catch (err) {
+      toast(err.name === "NotAllowedError" ? "Microphone permission was denied." : err.message);
+      $("handsfree").checked = false;
+      return;
+    }
+    const silenceMs = state.profile?.silence_ms || 1200;
+    vad = new EnergyVAD(mic, {
+      silenceMs,
+      isCoachSpeaking: () => player.playing,
+      onLevel: (lvl) => { $("meter").style.width = `${Math.min(100, lvl * 600)}%`; },
+      onSpeechStart: async () => {
+        if (busy) await bargeIn();          // the learner talked over the coach
+        micBtn.classList.add("recording");
+        setState("listening");
+      },
+      onSpeechEnd: (blob) => {
+        micBtn.classList.remove("recording");
+        if (blob) sendTurn({ blob }); else setState("idle");
+      },
+    });
+    vad.start();
+    micBtn.disabled = true;
+    hint.textContent = `Hands-free: just speak. A ${(silenceMs / 1000).toFixed(1)} s pause ends your turn; talk over the coach to interrupt.`;
+    if (busy) vad.resume(); else setState("idle");
+  }
+
+  function stopHandsFree() {
+    vad?.stop();
+    vad = null;
+    micBtn.disabled = false;
+    micBtn.classList.remove("recording");
+    $("meter").style.width = "0";
+    hint.textContent = PTT_HINT;
+    if (!busy) setState("idle");
+  }
+
+  $("handsfree")?.addEventListener("change", (e) => (e.target.checked ? startHandsFree() : stopHandsFree()));
+
   // ---- typed turns ----
   $("typebox").addEventListener("submit", (e) => {
     e.preventDefault();
@@ -232,6 +288,8 @@ export async function startTalk(view, personaId) {
     if (ended) return null;
     ended = true;
     clearInterval(meterTimer);
+    vad?.stop();
+    vad = null;
     document.removeEventListener("keydown", onKey);
     document.removeEventListener("keyup", onKey);
     player.stop();
