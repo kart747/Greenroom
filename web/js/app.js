@@ -453,6 +453,7 @@ async function renderSettings() {
       <section class="card"><h2>Models</h2>
         <ul style="list-style:none;padding:0;margin:0;display:grid;gap:.5rem">
           ${row("llm", "Coach (LLM)")}${row("stt", "Speech recognition")}${row("tts", "Coach voice")}
+          ${row("bert", "Smart word suggestions (BERT)")}${row("grammar", "Grammar feedback (T5)")}
         </ul>
         <p class="muted small" style="margin-top:.75rem">Everything runs on this computer. Missing models? Run <code>python setup_models.py</code> once.</p>
       </section>

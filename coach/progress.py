@@ -29,10 +29,10 @@ def progress(sessions: list[dict]) -> dict:
             "grammar_errors_per_turn": avg.get("grammar", {}).get("error_count"),
             "latency_total_s": s.get("latency", {}).get("total_s"),
         })
-        # Vocabulary and grammar spans are words worth practising; fillers
-        # ("um") would crowd the list without teaching anything new.
-        for analyzer in ("vocabulary", "grammar"):
-            flagged.update(s["summary"].get("counts", {}).get(analyzer, {}))
+        # Only vocabulary spans: they are the words worth drilling (and they
+        # become flashcards). Fillers ("um") and grammar spans ("was", "a")
+        # would crowd the list without being words to learn.
+        flagged.update(s["summary"].get("counts", {}).get("vocabulary", {}))
     return {
         "sessions": series,
         "most_flagged": [{"text": t, "count": n} for t, n in flagged.most_common(10)],

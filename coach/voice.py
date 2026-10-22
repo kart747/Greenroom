@@ -64,7 +64,13 @@ class VoicePipeline:
         return {"type": "audio", "index": 0, "text": text, "wav": self._synth(text)}
 
     def run_turn(self, audio: bytes | None = None, text: str | None = None) -> Iterator[dict]:
-        """Run one learner turn from a recording OR typed text; yield events."""
+        """Run one learner turn from a recording OR typed text; yield events.
+        The whole turn counts as "replying", so background analysis of earlier
+        turns doesn't take CPU from transcription or speech synthesis."""
+        with self.session.replying():
+            yield from self._run_turn(audio, text)
+
+    def _run_turn(self, audio: bytes | None, text: str | None) -> Iterator[dict]:
         start = self.clock()
         timings: dict = {"mode": "voice" if audio is not None else "text"}
 

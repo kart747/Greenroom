@@ -15,8 +15,14 @@ Closing the window stops the server.
 
 from __future__ import annotations
 
-import argparse
 import os
+
+# Runtime is offline: tell the Hugging Face libraries never to look online
+# (the models were fetched once by setup_models.py and load from models/).
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+
+import argparse
 import socket
 import threading
 import time

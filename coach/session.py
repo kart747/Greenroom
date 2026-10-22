@@ -1,16 +1,24 @@
 """A coaching session.
 
-Each learner turn goes two ways at once:
+Each learner turn goes two ways:
   1. to the LLM coach (in character) -> streamed reply
   2. to the analyzers, in a background thread -> findings for the end report
 The analyzers are never in the reply path, so they never add latency.
+
+They also don't COMPETE with the reply: BERT and T5 run on the CPU, and so
+does Kokoro. Measured on the dev laptop, running them at the same moment
+pushed the first sentence's speech synthesis from ~0.9 s to ~2.4 s. So the
+analysis of a turn waits until the coach's reply has been produced, and then
+runs while the coach is speaking, when the CPU has nothing else to do.
 """
 
 from __future__ import annotations
 
 import json
+import threading
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterator
@@ -19,6 +27,9 @@ from .analyzers import Analyzer, AnalyzerResult, default_analyzers
 from .llm import ChatModel
 from .nlp import preprocess
 from .personas import Persona
+
+# Safety net: if a reply is never finished (a stuck client), analysis starts anyway.
+MAX_WAIT_FOR_REPLY_S = 30
 
 
 @dataclass
@@ -40,36 +51,59 @@ class Session:
         self.latencies: list[dict] = []
         self._pending: list[tuple[Turn, Future]] = []
         self._pool = ThreadPoolExecutor(max_workers=1)  # spaCy isn't thread-safe; 1 worker keeps order
+        self._replying = 0                  # how many reply sections are open right now
+        self._reply_lock = threading.Lock()
+        self._quiet = threading.Event()     # set = no reply being produced: analysis may run
+        self._quiet.set()
         self.started = time.time()
 
     @property
     def opening(self) -> str:
         return self.persona.opening
 
-    def user_turn(self, text: str) -> Iterator[str]:
-        """Record a learner turn, start background analysis, stream the coach's reply."""
-        turn = Turn(text)
-        self.turns.append(turn)
-        self._pending.append((turn, self._pool.submit(self._analyze, text)))
-        self.messages.append({"role": "user", "content": text})
-
-        reply = []
+    @contextmanager
+    def replying(self):
+        """Mark "the coach is producing a reply" (LLM + speech synthesis).
+        Background analysis waits while any reply section is open. Sections can
+        nest: the voice pipeline opens one around STT + LLM + TTS, and
+        user_turn opens its own so text-only use is covered too."""
+        with self._reply_lock:
+            self._replying += 1
+            self._quiet.clear()
         try:
-            for chunk in self.llm.stream_chat(self.messages):
-                reply.append(chunk)
-                yield chunk
+            yield
         finally:
-            # Barge-in closes this generator early (the learner started talking).
-            # Keep the part of the reply that was already produced, so the
-            # coach's memory of the conversation matches what the learner heard.
-            if reply:
-                self.messages.append({"role": "assistant", "content": "".join(reply)})
+            with self._reply_lock:
+                self._replying -= 1
+                if self._replying == 0:
+                    self._quiet.set()
+
+    def user_turn(self, text: str) -> Iterator[str]:
+        """Record a learner turn, queue its analysis, stream the coach's reply."""
+        with self.replying():   # opened BEFORE queueing, so the analysis really waits
+            turn = Turn(text)
+            self.turns.append(turn)
+            self._pending.append((turn, self._pool.submit(self._analyze, text)))
+            self.messages.append({"role": "user", "content": text})
+
+            reply = []
+            try:
+                for chunk in self.llm.stream_chat(self.messages):
+                    reply.append(chunk)
+                    yield chunk
+            finally:
+                # Barge-in closes this generator early (the learner started talking).
+                # Keep the part of the reply that was already produced, so the
+                # coach's memory of the conversation matches what the learner heard.
+                if reply:
+                    self.messages.append({"role": "assistant", "content": "".join(reply)})
 
     def add_latency(self, timings: dict) -> None:
         """Store one turn's timings (from the voice pipeline) for the session record."""
         self.latencies.append(timings)
 
     def _analyze(self, text: str) -> list[AnalyzerResult]:
+        self._quiet.wait(timeout=MAX_WAIT_FOR_REPLY_S)   # let the reply have the CPU first
         doc = preprocess(text)
         return [a.analyze(doc) for a in self.analyzers]
 
