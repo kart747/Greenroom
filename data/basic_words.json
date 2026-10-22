@@ -1,20 +1,27 @@
 {
-  "_comment": "Overused basic words (by lemma) -> richer alternatives. Classical baseline: a hand-curated lexicon. Extend freely; later replace/augment with CEFR lists.",
+  "_comment": "Overused basic words (by lemma) -> richer alternatives, about 8 each, the most generally usable first (the classical baseline simply shows the first three). Base forms only: suggestions are inflected to match the learner's word (got -> received) in coach/analyzers/vocabulary.py. 'idioms' are fixed phrases whose basic word must not be replaced ('for good', 'good morning').",
   "words": {
-    "good": ["great", "excellent", "impressive", "enjoyable", "valuable"],
-    "nice": ["pleasant", "lovely", "friendly", "charming", "kind"],
-    "bad": ["poor", "disappointing", "unpleasant", "terrible", "harmful"],
-    "big": ["large", "huge", "enormous", "significant", "major"],
-    "small": ["tiny", "little", "compact", "minor", "slight"],
-    "happy": ["glad", "delighted", "pleased", "thrilled", "cheerful"],
-    "sad": ["upset", "unhappy", "disappointed", "heartbroken", "down"],
-    "thing": ["item", "object", "matter", "issue", "aspect"],
-    "stuff": ["things", "items", "material", "belongings"],
-    "get": ["receive", "obtain", "earn", "become", "understand"],
-    "interesting": ["fascinating", "engaging", "intriguing", "absorbing"],
-    "beautiful": ["stunning", "gorgeous", "picturesque", "elegant"],
-    "hard": ["difficult", "challenging", "tough", "demanding"],
-    "easy": ["simple", "straightforward", "effortless", "manageable"]
+    "good": ["great", "excellent", "wonderful", "fantastic", "impressive", "enjoyable", "valuable", "skilled"],
+    "nice": ["lovely", "pleasant", "kind", "friendly", "delightful", "charming", "comfortable", "enjoyable"],
+    "bad": ["poor", "terrible", "awful", "unpleasant", "disappointing", "serious", "harmful", "severe"],
+    "big": ["large", "huge", "major", "significant", "enormous", "massive", "serious", "vast"],
+    "small": ["little", "tiny", "minor", "slight", "compact", "limited", "modest", "narrow"],
+    "happy": ["glad", "pleased", "delighted", "thrilled", "cheerful", "content", "excited", "satisfied"],
+    "sad": ["unhappy", "upset", "disappointed", "depressed", "miserable", "heartbroken", "gloomy", "tragic"],
+    "thing": ["matter", "issue", "point", "aspect", "item", "object", "detail", "factor"],
+    "stuff": ["things", "items", "belongings", "equipment", "material", "supplies", "luggage", "gear"],
+    "get": ["receive", "obtain", "earn", "gain", "become", "buy", "reach", "understand"],
+    "interesting": ["fascinating", "engaging", "intriguing", "exciting", "absorbing", "compelling", "thought-provoking", "remarkable"],
+    "beautiful": ["stunning", "gorgeous", "lovely", "attractive", "picturesque", "elegant", "charming", "scenic"],
+    "hard": ["difficult", "challenging", "tough", "demanding", "tricky", "exhausting", "complicated", "strenuous"],
+    "easy": ["simple", "straightforward", "effortless", "manageable", "smooth", "painless", "basic", "light"],
+    "important": ["essential", "crucial", "vital", "significant", "key", "major", "necessary", "valuable"],
+    "boring": ["dull", "tedious", "monotonous", "uninteresting", "repetitive", "tiresome", "dry", "bland"]
   },
-  "intensifiers": ["very", "really", "so", "too"]
+  "intensifiers": ["very", "really", "so", "too", "quite", "pretty", "super", "extremely"],
+  "idioms": [
+    ["for", "good"], ["good", "morning"], ["good", "afternoon"], ["good", "evening"], ["good", "night"],
+    ["good", "luck"], ["good", "day"], ["no", "good"], ["big", "deal"], ["small", "talk"],
+    ["hard", "work"], ["hard", "copy"], ["hard", "disk"]
+  ]
 }

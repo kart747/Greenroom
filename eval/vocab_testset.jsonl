@@ -1,10 +1,70 @@
-{"text": "The food was very good and the place was nice.", "weak": ["very good", "nice"]}
-{"text": "My holiday was really nice and I got a lot of photos.", "weak": ["really nice", "got"]}
-{"text": "The exam was hard but the teacher was good.", "weak": ["hard", "good"]}
-{"text": "I watched a fascinating documentary about whales.", "weak": []}
-{"text": "It was a big problem for our small team.", "weak": ["big", "small"]}
-{"text": "She left the company for good last year.", "weak": []}
-{"text": "The city is beautiful and the people are happy.", "weak": ["beautiful", "happy"]}
-{"text": "I bought some stuff for the trip.", "weak": ["stuff"]}
-{"text": "The project deadline was challenging but we delivered on time.", "weak": []}
-{"text": "That movie was so bad, the story was a sad thing.", "weak": ["so bad", "sad", "thing"]}
+{"text": "The food was very good and the place was nice.", "weak": ["very good", "nice"], "acceptable": {"very good": ["great", "excellent", "wonderful", "fantastic"], "nice": ["lovely", "pleasant", "delightful", "charming", "comfortable"]}}
+{"text": "My holiday was really nice and I got a lot of gifts from my cousins.", "weak": ["really nice", "got"], "acceptable": {"really nice": ["lovely", "pleasant", "delightful", "enjoyable"], "got": ["receive"]}}
+{"text": "The exam was hard but the teacher was good.", "weak": ["hard", "good"], "acceptable": {"hard": ["difficult", "challenging", "tough", "demanding", "tricky"], "good": ["excellent", "great", "wonderful", "fantastic", "skilled"]}}
+{"text": "I watched a fascinating documentary about whales.", "weak": [], "acceptable": {}}
+{"text": "It was a big problem for our small team.", "weak": ["big", "small"], "acceptable": {"big": ["major", "huge", "significant", "serious", "massive"], "small": ["tiny", "little", "modest"]}}
+{"text": "She left the company for good last year.", "weak": [], "acceptable": {}}
+{"text": "The city is beautiful and the people are happy.", "weak": ["beautiful", "happy"], "acceptable": {"beautiful": ["stunning", "gorgeous", "lovely", "attractive", "picturesque", "charming", "scenic"], "happy": ["cheerful", "content"]}}
+{"text": "I bought some stuff for the trip.", "weak": ["stuff"], "acceptable": {"stuff": ["things", "items", "supplies", "equipment", "gear"]}}
+{"text": "The project deadline was challenging but we delivered on time.", "weak": [], "acceptable": {}}
+{"text": "That movie was so bad, the story was a sad thing.", "weak": ["so bad", "sad", "thing"], "acceptable": {"so bad": ["terrible", "awful", "disappointing", "poor"], "sad": ["tragic"], "thing": ["matter"]}}
+{"text": "Umm, actually the interview was very hard for me, sir.", "weak": ["very hard"], "acceptable": {"very hard": ["difficult", "challenging", "tough", "demanding"]}}
+{"text": "I am having two years experience in a big company.", "weak": ["big"], "acceptable": {"big": ["large", "major"]}}
+{"text": "My native place is very beautiful, you know, lot of greenery.", "weak": ["very beautiful"], "acceptable": {"very beautiful": ["stunning", "gorgeous", "picturesque", "scenic", "lovely"]}}
+{"text": "Basically I got placed in a good company last month.", "weak": ["good"], "acceptable": {"good": ["great", "excellent"]}}
+{"text": "The teacher explained it in a very easy way.", "weak": ["very easy"], "acceptable": {"very easy": ["simple", "straightforward"]}}
+{"text": "Honestly the hostel food was bad but the rooms were nice.", "weak": ["bad", "nice"], "acceptable": {"bad": ["poor", "terrible", "awful", "disappointing"], "nice": ["comfortable", "lovely", "pleasant"]}}
+{"text": "I get very nervous when I talk to new people.", "weak": [], "acceptable": {}}
+{"text": "We did a small project on face recognition in our third year.", "weak": ["small"], "acceptable": {"small": ["modest", "minor", "little"]}}
+{"text": "It is a very important thing for my career.", "weak": ["very important", "thing"], "acceptable": {"very important": ["essential", "crucial", "vital", "significant", "key"], "thing": ["matter", "factor", "aspect", "point"]}}
+{"text": "Good morning, sir, thank you for the opportunity.", "weak": [], "acceptable": {}}
+{"text": "I want to get a good job in a big MNC.", "weak": ["get", "good", "big"], "acceptable": {"get": ["obtain"], "good": ["great", "excellent"], "big": ["large", "major"]}}
+{"text": "The weather in Bangalore is really nice these days.", "weak": ["really nice"], "acceptable": {"really nice": ["lovely", "pleasant", "delightful"]}}
+{"text": "My father is very happy that I got admission in the UK.", "weak": ["very happy", "got"], "acceptable": {"very happy": ["delighted", "thrilled", "pleased", "glad"], "got": ["receive", "gain", "obtain"]}}
+{"text": "Uh, I think the course is interesting and the faculty is good.", "weak": ["interesting", "good"], "acceptable": {"interesting": ["fascinating", "engaging", "intriguing", "exciting", "compelling"], "good": ["excellent", "great", "impressive"]}}
+{"text": "Sorry, the delivery got delayed because of the rain.", "weak": [], "acceptable": {}}
+{"text": "It was a boring lecture, so I slept.", "weak": ["boring"], "acceptable": {"boring": ["dull", "tedious", "monotonous", "uninteresting", "dry"]}}
+{"text": "The new phone is too big for my hand.", "weak": ["too big"], "acceptable": {"too big": ["huge", "large", "enormous"]}}
+{"text": "I had a very bad experience with that bank.", "weak": ["very bad"], "acceptable": {"very bad": ["terrible", "awful", "unpleasant", "disappointing", "poor"]}}
+{"text": "We should solve this problem itself only.", "weak": [], "acceptable": {}}
+{"text": "My hometown is small but the people are nice.", "weak": ["small", "nice"], "acceptable": {"small": ["tiny", "little"], "nice": ["friendly", "kind", "lovely", "pleasant", "charming"]}}
+{"text": "Coding is not that hard once you practise daily.", "weak": ["hard"], "acceptable": {"hard": ["difficult", "tough", "challenging", "complicated", "tricky"]}}
+{"text": "The good thing about my college is the library.", "weak": ["good", "thing"], "acceptable": {"good": ["great"], "thing": ["aspect", "point"]}}
+{"text": "Can you tell me what is the status of my order?", "weak": [], "acceptable": {}}
+{"text": "I was so happy when I cleared the exam.", "weak": ["so happy"], "acceptable": {"so happy": ["thrilled", "delighted", "glad", "pleased", "excited"]}}
+{"text": "It's a nice campus with lots of trees.", "weak": ["nice"], "acceptable": {"nice": ["lovely", "pleasant", "charming"]}}
+{"text": "My weakness is that I get angry easily.", "weak": [], "acceptable": {}}
+{"text": "The bus was very small and the seats were hard.", "weak": ["very small"], "acceptable": {"very small": ["tiny"]}}
+{"text": "She is a good friend and a nice person.", "weak": ["good", "nice"], "acceptable": {"good": ["great", "wonderful", "excellent"], "nice": ["kind", "lovely", "friendly", "pleasant", "charming"]}}
+{"text": "Actually my spoken English is weak, so I am practising daily.", "weak": [], "acceptable": {}}
+{"text": "We went to a beautiful beach and had a nice lunch there.", "weak": ["beautiful", "nice"], "acceptable": {"beautiful": ["stunning", "gorgeous", "picturesque", "lovely", "scenic"], "nice": ["lovely", "pleasant", "delightful", "enjoyable"]}}
+{"text": "The salary is good but the work is very hard.", "weak": ["good", "very hard"], "acceptable": {"good": ["excellent", "great", "impressive"], "very hard": ["demanding", "challenging", "tough", "exhausting", "strenuous", "difficult"]}}
+{"text": "I like to read books in my free time.", "weak": [], "acceptable": {}}
+{"text": "The movie was really interesting, especially the ending.", "weak": ["really interesting"], "acceptable": {"really interesting": ["fascinating", "engaging", "intriguing", "compelling", "exciting", "absorbing"]}}
+{"text": "Our team got first prize in the hackathon.", "weak": ["got"], "acceptable": {"got": ["receive", "earn"]}}
+{"text": "Hmm, I think that is a big question.", "weak": ["big"], "acceptable": {"big": ["major", "huge", "significant"]}}
+{"text": "Kindly do the needful and send the documents.", "weak": [], "acceptable": {}}
+{"text": "My presentation skills are not good, I mean, I get nervous.", "weak": ["good"], "acceptable": {"good": ["great", "impressive"]}}
+{"text": "It is very easy to reach the campus from the station.", "weak": ["very easy"], "acceptable": {"very easy": ["simple", "straightforward", "effortless"]}}
+{"text": "The customer was sad because the product was bad.", "weak": ["sad", "bad"], "acceptable": {"sad": ["upset", "unhappy", "disappointed"], "bad": ["poor", "disappointing", "terrible", "awful"]}}
+{"text": "I am very happy to be here today.", "weak": ["very happy"], "acceptable": {"very happy": ["delighted", "glad", "pleased", "thrilled", "excited"]}}
+{"text": "The lab has all the important stuff we need.", "weak": ["important", "stuff"], "acceptable": {"important": ["essential", "necessary", "key", "vital", "crucial"], "stuff": ["equipment", "supplies", "things", "material", "gear", "items"]}}
+{"text": "Getting a visa is a hard process these days.", "weak": ["getting", "hard"], "acceptable": {"getting": ["obtain"], "hard": ["difficult", "challenging", "tough", "demanding", "complicated"]}}
+{"text": "I wake up early and get ready by seven.", "weak": [], "acceptable": {}}
+{"text": "We had a nice time at the farewell party.", "weak": ["nice"], "acceptable": {"nice": ["lovely", "pleasant", "delightful", "enjoyable"]}}
+{"text": "The questions in the aptitude round were very easy.", "weak": ["very easy"], "acceptable": {"very easy": ["simple", "straightforward", "basic", "manageable"]}}
+{"text": "I think it is a good idea to learn French also.", "weak": ["good"], "acceptable": {"good": ["great", "excellent", "wonderful", "fantastic"]}}
+{"text": "This laptop is good for coding and it's not too costly.", "weak": ["good"], "acceptable": {"good": ["great", "excellent"]}}
+{"text": "Uh, so, the main thing is communication.", "weak": ["thing"], "acceptable": {"thing": ["point", "issue", "factor", "aspect", "matter"]}}
+{"text": "My mother makes very good biryani.", "weak": ["very good"], "acceptable": {"very good": ["excellent", "great", "fantastic", "wonderful"]}}
+{"text": "Our flat is small, but it is near the office.", "weak": ["small"], "acceptable": {"small": ["tiny", "compact", "modest"]}}
+{"text": "The trip was boring because it rained all day.", "weak": ["boring"], "acceptable": {"boring": ["dull", "tedious", "uninteresting", "monotonous"]}}
+{"text": "I will get back to you by tomorrow evening.", "weak": [], "acceptable": {}}
+{"text": "It's a really big decision for my family.", "weak": ["really big"], "acceptable": {"really big": ["huge", "major", "significant", "serious"]}}
+{"text": "The professor was very interesting and very helpful.", "weak": ["very interesting"], "acceptable": {"very interesting": ["fascinating", "engaging", "remarkable", "compelling"]}}
+{"text": "Everybody was happy with the result.", "weak": ["happy"], "acceptable": {"happy": ["pleased", "satisfied", "delighted", "content", "thrilled"]}}
+{"text": "That is a good question, let me think.", "weak": ["good"], "acceptable": {"good": ["great", "excellent"]}}
+{"text": "I am sad that I could not attend.", "weak": ["sad"], "acceptable": {"sad": ["disappointed", "upset", "unhappy"]}}
+{"text": "Thank you, have a good day.", "weak": [], "acceptable": {}}
+{"text": "Can you please give me some easy examples?", "weak": ["easy"], "acceptable": {"easy": ["simple", "basic", "straightforward"]}}
+{"text": "I got to know about this course from my senior.", "weak": [], "acceptable": {}}

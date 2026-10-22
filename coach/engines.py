@@ -31,6 +31,12 @@ class Engines:
             "tts": {"state": READY if tts else OFF, "message": "" if tts else "Coach voice is off."},
         }
         self._lock = threading.Lock()
+        # Optional NLP models: "off" with a reason unless config turns them on.
+        flags = cfg.get("analyzers", {})
+        for name, flag in (("bert", "contextual"), ("grammar", "grammar")):
+            self._status[name] = {"state": OFF, "message": "Turned off in config.json."}
+            if load and flags.get(flag):
+                self._status[name] = {"state": LOADING, "message": "Loading..."}
         if load:
             for name in ("stt", "tts"):
                 self._status[name] = {"state": LOADING, "message": "Loading..."}
@@ -51,6 +57,24 @@ class Engines:
             except Unavailable as err:
                 with self._lock:
                     self._status[name] = {"state": OFF, "message": str(err)}
+        self._load_analyzers()
+
+    def _load_analyzers(self) -> None:
+        """Load the BERT and grammar models now (they are shared singletons), so
+        the first session doesn't wait for them and Settings can show their state."""
+        from .analyzers.grammar import get_corrector
+        from .analyzers.vocabulary import get_mask_scorer
+        flags = self.cfg.get("analyzers", {})
+        for name, flag, loader in (("bert", "contextual", get_mask_scorer), ("grammar", "grammar", get_corrector)):
+            if not flags.get(flag):
+                continue
+            try:
+                loader()
+                state = {"state": READY, "message": ""}
+            except Unavailable as err:
+                state = {"state": OFF, "message": str(err)}
+            with self._lock:
+                self._status[name] = state
 
     def status(self) -> dict:
         """Current state of every engine, checked live for the LLM (Ollama can

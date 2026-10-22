@@ -40,6 +40,8 @@ BASE_DEFAULTS: dict = {
             "british_male": "bm_george",
         },
     },
+    # Model-based NLP upgrades (CPU). Each turns itself off if its model is missing.
+    "analyzers": {"contextual": True, "grammar": True},
 }
 
 

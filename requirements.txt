@@ -15,6 +15,13 @@ pywebview>=5.0
 PyQt6>=6.6
 PyQt6-WebEngine>=6.6
 qtpy>=2.4
+# NLP upgrades (optional at runtime; each turns itself off if missing)
+# CPU build of torch is enough (BERT/T5 run on the CPU, the GPU is for the LLM + Whisper):
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+torch>=2.2
+transformers>=4.40
+sentencepiece>=0.2
+lemminflect>=0.2.3
 # after install:
 #   python -m spacy download en_core_web_sm
 #   python -m coach.tts --download        (Kokoro model into models/)

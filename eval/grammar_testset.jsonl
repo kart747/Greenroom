@@ -1,0 +1,40 @@
+{"text": "She don't like coffee.", "errors": [{"wrong": "don't", "fix": "doesn't"}]}
+{"text": "I am having two years of experience.", "errors": [{"wrong": "am having", "fix": "have"}]}
+{"text": "He go to college every day.", "errors": [{"wrong": "go", "fix": "goes"}]}
+{"text": "Yesterday I go to the market with my friend.", "errors": [{"wrong": "go", "fix": "went"}]}
+{"text": "I am interested to join your company.", "errors": [{"wrong": "to join", "fix": "in joining"}]}
+{"text": "She is more taller than me.", "errors": [{"wrong": "more taller", "fix": "taller"}]}
+{"text": "There is many students in the class.", "errors": [{"wrong": "is", "fix": "are"}]}
+{"text": "I didn't went to the party.", "errors": [{"wrong": "went", "fix": "go"}]}
+{"text": "He is working here since 2020.", "errors": [{"wrong": "is working", "fix": "has been working"}]}
+{"text": "I want to discuss about my project.", "errors": [{"wrong": "about", "fix": ""}]}
+{"text": "My friend he is very helpful.", "errors": [{"wrong": "he", "fix": ""}]}
+{"text": "I have a lot of works to do.", "errors": [{"wrong": "works", "fix": "work"}]}
+{"text": "She can speaks three languages.", "errors": [{"wrong": "speaks", "fix": "speak"}]}
+{"text": "I am agree with you.", "errors": [{"wrong": "am agree", "fix": "agree"}]}
+{"text": "We was late for the interview.", "errors": [{"wrong": "was", "fix": "were"}]}
+{"text": "I have visited Paris last year.", "errors": [{"wrong": "have visited", "fix": "visited"}]}
+{"text": "He did not came yesterday.", "errors": [{"wrong": "came", "fix": "come"}]}
+{"text": "The informations are on the website.", "errors": [{"wrong": "informations are", "fix": "information is"}]}
+{"text": "I will call you after I will reach home.", "errors": [{"wrong": "will reach", "fix": "reach"}]}
+{"text": "Can you explain me the process?", "errors": [{"wrong": "me", "fix": "to me"}]}
+{"text": "She is a engineer at Infosys.", "errors": [{"wrong": "a", "fix": "an"}]}
+{"text": "Each of the students have a laptop.", "errors": [{"wrong": "have", "fix": "has"}]}
+{"text": "I goes to the gym in the morning.", "errors": [{"wrong": "goes", "fix": "go"}]}
+{"text": "I have two brother and one sister.", "errors": [{"wrong": "brother", "fix": "brothers"}]}
+{"text": "I am waiting for you since morning.", "errors": [{"wrong": "am waiting", "fix": "have been waiting"}]}
+{"text": "My father is a doctor and my mother also a doctor.", "errors": [{"wrong": "also", "fix": "is also"}]}
+{"text": "He don't know the answer.", "errors": [{"wrong": "don't", "fix": "doesn't"}]}
+{"text": "I has finished my homework.", "errors": [{"wrong": "has", "fix": "have"}]}
+{"text": "i am having two years of experience in java", "errors": [{"wrong": "am having", "fix": "have"}]}
+{"text": "yesterday we goes to the mall and buyed shoes", "errors": [{"wrong": "goes", "fix": "went"}, {"wrong": "buyed", "fix": "bought"}]}
+{"text": "She have completed the course last month.", "errors": [{"wrong": "have completed", "fix": "completed"}]}
+{"text": "I graduated from Anna University in 2023.", "errors": []}
+{"text": "She has been working here since 2020.", "errors": []}
+{"text": "We are planning to visit London next summer.", "errors": []}
+{"text": "Could you tell me more about the role?", "errors": []}
+{"text": "I usually take the metro to work.", "errors": []}
+{"text": "My favourite subject was data structures.", "errors": []}
+{"text": "They were very kind to me during the internship.", "errors": []}
+{"text": "I have never been abroad before.", "errors": []}
+{"text": "umm i think teamwork is my biggest strength", "errors": []}
