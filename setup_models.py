@@ -13,7 +13,7 @@ What it fetches (sizes approximate):
   Whisper (size from config.json)       75-480 MB   speech recognition
   DistilBERT base uncased (optional)       260 MB   context-aware word suggestions
   T5-base grammar correction (optional)    890 MB   grammar feedback
-  Ollama model (config.json, qwen2.5:3b)   1.9 GB   the coach itself (via `ollama pull`)
+  Ollama model (config.json, Qwen3 4B)    2.5 GB   the coach itself (via `ollama pull`)
 Anything already downloaded is skipped, so it is safe to run again.
 """
 

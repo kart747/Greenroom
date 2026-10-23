@@ -27,7 +27,13 @@ CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.json"
 
 # Safe on any machine: CPU only, small models.
 BASE_DEFAULTS: dict = {
-    "llm": {"model": "qwen2.5:3b", "host": "http://localhost:11434", "temperature": 0.7},
+    # The coach. Qwen3 4B Instruct (2507, non-"thinking": it answers at once)
+    # replaced qwen2.5:3b after a side-by-side test: correct grammar
+    # explanations and corrections where the 3B model confused "since"/"for"
+    # and invented corrections. num_ctx 3072 keeps its context cache small
+    # enough to share a 4 GB GPU with Whisper (Ollama: 3.4 GB vs 3.6 GB at 4096).
+    "llm": {"model": "qwen3:4b-instruct-2507-q4_K_M", "host": "http://localhost:11434",
+            "temperature": 0.7, "num_ctx": 3072},
     "stt": {"whisper_size": "base", "device": "cpu", "compute_type": "int8"},
     # Kokoro runs on the CPU (onnxruntime), so it never competes with the LLM for VRAM.
     # A persona's "voice" field (e.g. "british_male") is looked up in this map.

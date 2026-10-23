@@ -29,7 +29,8 @@ def test_defaults_cpu_uses_int8():
 
 
 def test_default_llm_is_small_local_model():
-    assert pick_defaults(CPU_ONLY)["llm"]["model"] == "qwen2.5:3b"
+    llm = pick_defaults(CPU_ONLY)["llm"]
+    assert llm["model"] == "qwen3:4b-instruct-2507-q4_K_M" and llm["num_ctx"] == 3072   # 4B: within the 5B limit
 
 
 def test_pick_defaults_does_not_mutate_base():

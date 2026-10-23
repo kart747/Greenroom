@@ -33,7 +33,7 @@ lemminflect>=0.2.3
 pytest>=8.0
 httpx>=0.27
 
-# Not pip: Ollama (https://ollama.com). setup_models.py pulls the LLM (qwen2.5:3b).
+# Not pip: Ollama (https://ollama.com). setup_models.py pulls the LLM (Qwen3 4B, see config.json).
 # GPU speech recognition needs CUDA 12 cuBLAS + cuDNN 9: a system CUDA install, or
 #   pip install nvidia-cublas-cu12 nvidia-cudnn-cu12   (coach/stt.py loads them). Without them,
 #   set "device": "cpu" in config.json.

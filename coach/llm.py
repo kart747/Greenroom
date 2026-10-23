@@ -19,7 +19,7 @@ import requests
 from .errors import Unavailable
 
 
-# Ollama unloads an idle model after 5 minutes, and reloading qwen2.5:3b takes
+# Ollama unloads an idle model after 5 minutes, and reloading it takes
 # about 15 s on this laptop. A learner reading the report for a few minutes
 # should not pay that again, so keep it loaded for 30 minutes.
 KEEP_ALIVE = "30m"
@@ -32,7 +32,7 @@ class ChatModel(Protocol):
 
 
 class OllamaChat:
-    def __init__(self, model: str = "qwen2.5:3b", host: str = "http://localhost:11434",
+    def __init__(self, model: str = "qwen3:4b-instruct-2507-q4_K_M", host: str = "http://localhost:11434",
                  temperature: float = 0.7, num_ctx: int | None = None):
         """num_ctx: how many tokens of conversation the model keeps. Its cache
         lives in GPU memory, so on a 4 GB card it decides whether the model
