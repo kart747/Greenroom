@@ -13,9 +13,9 @@ CPU_ONLY = {"gpu": None, "vram_mb": 0, "ram_gb": 16.0}
 CPU_LOW_RAM = {"gpu": None, "vram_mb": 0, "ram_gb": 4.0}
 
 
-def test_defaults_gpu_4gb_uses_small_float16():
+def test_defaults_gpu_4gb_uses_small_int8_float16():
     stt = pick_defaults(GPU_4GB)["stt"]
-    assert stt == {"whisper_size": "small", "device": "cuda", "compute_type": "float16"}
+    assert stt == {"whisper_size": "small", "device": "cuda", "compute_type": "int8_float16"}
 
 
 def test_defaults_small_gpu_uses_base():

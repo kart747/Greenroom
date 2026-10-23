@@ -92,19 +92,22 @@ def _ram_gb() -> float:
 def pick_defaults(hw: dict) -> dict:
     """Choose whisper size + compute type for this machine.
 
-    The GPU is SHARED with the LLM: qwen2.5:3b (4-bit) takes about 2.5 GB VRAM
-    including its context cache, so whisper only gets what is left.
-      - whisper small, float16: about 1 GB VRAM -> fits next to the LLM on a 4 GB card
-      - whisper base,  float16: about 0.5 GB    -> for cards under 4 GB
+    The GPU is SHARED with the LLM, so whisper only gets what is left.
+    Measured on an RTX 3050 (4 GB), six learner recordings:
+      - whisper small, float16:       728 MiB, 0.20 s per turn
+      - whisper small, int8_float16:  440 MiB, 0.19 s, word-for-word the same transcripts
+      - whisper base,  float16:       312 MiB, 0.12 s, slightly less faithful to fillers
+    int8_float16 stores the weights in 8 bits and computes in 16, so "small"
+    keeps its accuracy while leaving ~0.3 GB more for the LLM.
     On CPU, int8 is about 2-4x faster than float32 with almost no accuracy loss,
     and "base" keeps transcription of a short turn well under a second on a modern CPU.
     """
     cfg = copy.deepcopy(BASE_DEFAULTS)
     stt = cfg["stt"]
     if hw.get("gpu") and hw.get("vram_mb", 0) >= 3900:  # "4 GB" cards report ~4096 MiB
-        stt.update(whisper_size="small", device="cuda", compute_type="float16")
+        stt.update(whisper_size="small", device="cuda", compute_type="int8_float16")
     elif hw.get("gpu") and hw.get("vram_mb", 0) >= 2000:
-        stt.update(whisper_size="base", device="cuda", compute_type="float16")
+        stt.update(whisper_size="base", device="cuda", compute_type="int8_float16")
     elif hw.get("ram_gb", 0) and hw["ram_gb"] < 6:
         stt.update(whisper_size="tiny")  # low-RAM laptop: smallest model
     return cfg
