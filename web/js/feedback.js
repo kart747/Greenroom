@@ -6,7 +6,7 @@
 // A highlighted part opens a popover with the message and suggestions on
 // hover (mouse), tap (touch) or keyboard focus.
 
-export const ANALYZER_LABEL = { vocabulary: "Word choice", fluency: "Fluency", grammar: "Grammar" };
+export const ANALYZER_LABEL = { vocabulary: "Word choice", fluency: "Fluency", grammar: "Grammar", pace: "Pace" };
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);

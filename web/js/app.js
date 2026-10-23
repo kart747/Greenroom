@@ -361,7 +361,7 @@ async function renderReport(id) {
       <section class="card">
         <div class="row spread"><h2>What you said</h2>
           <div class="legend"><span><i style="background:var(--vocab)"></i>Word choice</span>
-            <span><i style="background:var(--fluency)"></i>Fluency</span><span><i style="background:var(--grammar)"></i>Grammar</span></div></div>
+            <span><i style="background:var(--fluency)"></i>Fluency &amp; pace</span><span><i style="background:var(--grammar)"></i>Grammar</span></div></div>
         <p class="muted small">${total ? "Tap or hover a highlighted part to see why and what to try instead." : "Nothing flagged. Clear, varied English. Well done!"}</p>
         <ol class="turns">${r.turns.map(() => `<li class="sentence"></li>`).join("")}</ol>
       </section>
@@ -377,6 +377,8 @@ async function renderReport(id) {
           <div class="stat"><b>${round(avg.fluency?.fillers_per_100_words, 1)}</b><span>fillers per 100 words</span></div>
           <div class="stat"><b>${round(avg.fluency?.avg_sentence_length, 1)}</b><span>words per sentence</span></div>
           ${avg.grammar ? `<div class="stat"><b>${round(avg.grammar.error_count, 1)}</b><span>grammar fixes per turn</span></div>` : ""}
+          ${avg.pace?.words_per_minute != null ? `<div class="stat"><b>${round(avg.pace.words_per_minute, 0)}</b><span>words per minute (conversation: about 120–160)</span></div>
+            <div class="stat"><b>${round(avg.pace.pauses_per_minute, 1)}</b><span>pauses per minute (250 ms or longer)</span></div>` : ""}
           ${lat.total_s !== undefined ? `<div class="stat"><b>${round(lat.total_s, 2)} s</b><span>coach response time</span></div>` : ""}
         </div>
       </section>
@@ -404,6 +406,7 @@ async function renderProgress() {
         ${chart("Word variety", "type_token_ratio", "Higher is better: share of different content words.", { decimals: 2 })}
         ${chart("Fillers per 100 words", "fillers_per_100_words", "Lower is better: fewer “um”, “you know”.", { decimals: 1 })}
         ${p.sessions.some((s) => s.grammar_errors_per_turn != null) ? chart("Grammar fixes per turn", "grammar_errors_per_turn", "Lower is better.", { decimals: 1 }) : ""}
+        ${p.sessions.some((s) => s.words_per_minute != null) ? chart("Speaking speed", "words_per_minute", "Words per minute when you speak; about 120–160 is a comfortable conversation pace.", { decimals: 0 }) : ""}
         ${chart("Coach response time", "latency_total_s", "From the end of your speech to the coach's first word.", { decimals: 2, unit: "s" })}
       </div>
       <section class="card"><h2>Most-flagged words</h2>

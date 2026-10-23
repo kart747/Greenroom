@@ -309,7 +309,7 @@ mark {
   border-bottom: 2px solid transparent;
 }
 mark.vocabulary { background: var(--vocab); }
-mark.fluency { background: var(--fluency); }
+mark.fluency, mark.pace { background: var(--fluency); }
 mark.grammar { background: var(--grammar); }
 mark:hover, mark.open { border-bottom-color: currentColor; }
 .legend { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--muted); }
