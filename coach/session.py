@@ -121,12 +121,13 @@ class Session:
                 if self._replying == 0:
                     self._quiet.set()
 
-    def user_turn(self, text: str) -> Iterator[str]:
-        """Record a learner turn, queue its analysis, stream the coach's reply."""
+    def user_turn(self, text: str, timing: list[dict] | None = None) -> Iterator[str]:
+        """Record a learner turn, queue its analysis, stream the coach's reply.
+        `timing`: Whisper's word timings for a spoken turn (None when typed)."""
         with self.replying():   # opened BEFORE queueing, so the analysis really waits
             turn = Turn(text)
             self.turns.append(turn)
-            self._pending.append((turn, self._pool.submit(self._analyze, text)))
+            self._pending.append((turn, self._pool.submit(self._analyze, text, timing)))
             self.messages.append({"role": "user", "content": text})
 
             reply = []
@@ -145,9 +146,9 @@ class Session:
         """Store one turn's timings (from the voice pipeline) for the session record."""
         self.latencies.append(timings)
 
-    def _analyze(self, text: str) -> list[AnalyzerResult]:
+    def _analyze(self, text: str, timing: list[dict] | None = None) -> list[AnalyzerResult]:
         self._quiet.wait(timeout=MAX_WAIT_FOR_REPLY_S)   # let the reply have the CPU first
-        doc = preprocess(text)
+        doc = preprocess(text, timing)
         return [a.analyze(doc) for a in self.analyzers]
 
     def finish(self) -> dict:

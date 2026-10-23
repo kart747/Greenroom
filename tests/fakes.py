@@ -37,15 +37,26 @@ class FakeLLM:
 
 
 class FakeSTT:
-    """Replaces WhisperSTT: 'hears' a fixed sentence."""
+    """Replaces WhisperSTT: 'hears' a fixed sentence, with word timings like
+    Whisper's: 0.3 s per word, 0.1 s gaps, and one 2-second pause before the
+    fourth word (so the pace analyzer has something to find)."""
 
     def __init__(self, text: str = "Umm the trip was very good."):
         self.text = text
         self.calls = 0
 
     def transcribe_bytes(self, data: bytes) -> str:
+        return self.transcribe_bytes_timed(data).text
+
+    def transcribe_bytes_timed(self, data: bytes):
+        from coach.stt import Transcript
         self.calls += 1
-        return self.text
+        words, t = [], 0.0
+        for i, w in enumerate(self.text.split()):
+            t += 2.0 if i == 3 else (0.1 if i else 0.0)
+            words.append({"word": w, "start": round(t, 2), "end": round(t + 0.3, 2), "prob": 0.9})
+            t += 0.3
+        return Transcript(self.text, words)
 
 
 class FakeTTS:

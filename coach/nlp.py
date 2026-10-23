@@ -2,6 +2,11 @@
 
 spaCy gives us sentence segmentation, tokenization, lemmas and POS tags in one
 pass -- the classical NLP base layer.
+
+For spoken turns, Whisper's word timings ride along on the Doc as
+doc._.timing (a spaCy custom attribute). That keeps the analyzer contract
+"a Doc in, findings out" unchanged while letting the pace analyzer see time.
+Typed turns have doc._.timing = None.
 """
 
 from __future__ import annotations
@@ -12,6 +17,9 @@ import spacy
 from spacy.tokens import Doc
 
 MODEL = "en_core_web_sm"
+
+if not Doc.has_extension("timing"):
+    Doc.set_extension("timing", default=None)
 
 
 @lru_cache(maxsize=1)
@@ -24,5 +32,7 @@ def get_nlp():
         ) from exc
 
 
-def preprocess(text: str) -> Doc:
-    return get_nlp()(text)
+def preprocess(text: str, timing: list[dict] | None = None) -> Doc:
+    doc = get_nlp()(text)
+    doc._.timing = timing
+    return doc

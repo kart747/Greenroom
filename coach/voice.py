@@ -74,10 +74,15 @@ class VoicePipeline:
         start = self.clock()
         timings: dict = {"mode": "voice" if audio is not None else "text"}
 
+        word_times = None      # Whisper's per-word timings, for the pace analyzer
         if audio is not None:
             if self.stt is None:
                 raise Unavailable("Voice input is off. Type your answer instead.")
-            text = self.stt.transcribe_bytes(audio)
+            if hasattr(self.stt, "transcribe_bytes_timed"):
+                heard = self.stt.transcribe_bytes_timed(audio)
+                text, word_times = heard.text, heard.words
+            else:
+                text = self.stt.transcribe_bytes(audio)
             timings["stt_s"] = round(self.clock() - start, 3)
             yield {"type": "transcript", "text": text}
         if not text or not text.strip():
@@ -89,7 +94,7 @@ class VoicePipeline:
         index = 0
         llm_start = self.clock()
         try:
-            for delta in self.session.user_turn(text.strip()):
+            for delta in self.session.user_turn(text.strip(), timing=word_times):
                 if "llm_first_token_s" not in timings:
                     timings["llm_first_token_s"] = round(self.clock() - llm_start, 3)
                 yield {"type": "text", "delta": delta}

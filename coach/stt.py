@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import io
 import site
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .errors import Unavailable
@@ -31,6 +32,15 @@ SAMPLE_RATE = 16_000
 # it keep them (tested: "Uh, so basically, I I worked..." instead of
 # "Us, so basically. I worked..."), at no extra cost.
 FILLER_PROMPT = "Umm, let me think, like, hmm... Okay, uh, so, you know, I I mean."
+
+
+@dataclass
+class Transcript:
+    """What Whisper heard, plus when each word was said (seconds from the start
+    of the recording). The timings let the pace analyzer measure speaking
+    speed and pauses, which plain text can't show."""
+    text: str
+    words: list[dict] = field(default_factory=list)   # {"word", "start", "end", "prob"}
 
 
 class WhisperSTT:
@@ -57,23 +67,38 @@ class WhisperSTT:
 
     def transcribe_bytes(self, data: bytes) -> str:
         """Transcribe an uploaded recording (any container PyAV reads: webm, ogg, wav)."""
+        return self.transcribe_bytes_timed(data).text
+
+    def transcribe_bytes_timed(self, data: bytes) -> Transcript:
+        """Like transcribe_bytes, with word timings (used by the voice pipeline)."""
         from faster_whisper import decode_audio
         try:
             audio = decode_audio(io.BytesIO(data), sampling_rate=SAMPLE_RATE)
         except Exception as exc:  # truncated upload, unknown format
             raise ValueError(f"Could not decode the recording: {exc}") from exc
-        return self.transcribe_array(audio)
+        return self.transcribe_timed(audio)
 
     def transcribe_array(self, audio) -> str:
+        return self.transcribe_timed(audio).text
+
+    def transcribe_timed(self, audio) -> Transcript:
         # language="en": skips language detection (saves time, and a learner's
         # accent can fool the detector into picking another language).
         # vad_filter=True: Silero VAD drops silent stretches before decoding, which
         # stops Whisper from "hallucinating" text like "Thank you." on silence.
+        # Timestamps are mapped back to the original recording, so pauses
+        # the VAD skipped still show up as gaps between words.
+        # word_timestamps=True: measured on this laptop, no measurable extra time.
         segments, _ = self.model.transcribe(audio, language="en", vad_filter=True,
                                             beam_size=self.beam_size,
                                             condition_on_previous_text=False,
-                                            initial_prompt=FILLER_PROMPT)
-        return " ".join(s.text.strip() for s in segments).strip()
+                                            initial_prompt=FILLER_PROMPT,
+                                            word_timestamps=True)
+        segments = list(segments)
+        words = [{"word": w.word.strip(), "start": round(float(w.start), 3),
+                  "end": round(float(w.end), 3), "prob": round(float(w.probability), 3)}
+                 for s in segments for w in (s.words or [])]
+        return Transcript(" ".join(s.text.strip() for s in segments).strip(), words)
 
 
 def load_stt(cfg: dict) -> WhisperSTT:
