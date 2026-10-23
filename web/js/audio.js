@@ -9,6 +9,10 @@
 // Playback: the server sends one WAV per sentence. They can arrive faster than
 // they play, so CoachPlayer queues them and plays them back to back, in order.
 
+// The microphone icon, shared by the chat and the review drills.
+export const MIC_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+  <rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>`;
+
 let ctx = null;
 
 // One shared AudioContext. Browsers only allow it to start after a click,

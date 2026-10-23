@@ -29,14 +29,12 @@
 //   - select a word in the coach's reply to see what it means
 
 import { api, readEvents, sendJSON, getJSON } from "./api.js";
-import { Mic, CoachPlayer, audioContext } from "./audio.js";
+import { Mic, CoachPlayer, audioContext, MIC_SVG } from "./audio.js";
 import { EnergyVAD } from "./vad.js";
 import { renderMarkdown } from "./markdown.js";
 import { showFindings } from "./feedback.js";
 import { esc, toast, state, getStatus, refreshSidebar, autoGrow, FEEDBACK_INFO } from "./app.js";
 
-const MIC_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-  <rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>`;
 const MIN_RECORDING_MS = 350;   // shorter presses are accidental taps, not speech
 const PTT_HINT = "Hold the mic (or Space) while you speak, or tap once to start and again to stop.";
 const FEEDBACK_POLL_MS = 900;

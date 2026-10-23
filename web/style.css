@@ -347,6 +347,16 @@ ol.turns li + li { margin-top: 0.6rem; }
 /* ---- review ---- */
 .flash { text-align: center; padding: 2rem 1.5rem; }
 .flash .front { font-size: 2rem; font-weight: 700; }
+.flash-sentence { font-size: 1.2rem; line-height: 1.9; }
+.flash-answer { font-size: 1.25rem; font-weight: 600; color: var(--primary); }
+.answer-row { display: flex; gap: 0.75rem; align-items: center; justify-content: center; margin: 0.75rem 0; }
+.answer-row .mic { width: 58px; height: 58px; flex-shrink: 0; }
+.answer-row .mic svg { width: 26px; height: 26px; }
+.answer-row .composer { max-width: 380px; }
+.answer-row input { border: none; outline: none; background: transparent; flex: 1; font: inherit; color: var(--text); padding: 0.45rem 0; }
+.drill-result { margin: 0.5rem auto; padding: 0.6rem 0.9rem; border-radius: 12px; max-width: 460px; }
+.drill-result.ok { background: var(--primary-soft); }
+.drill-result.no { background: color-mix(in srgb, var(--grammar) 45%, transparent); }
 .flash .example { color: var(--muted); font-style: italic; }
 .grades { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
 .grades button { flex-direction: column; border-radius: 12px; padding: 0.6rem 0.4rem; }

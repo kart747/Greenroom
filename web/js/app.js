@@ -15,6 +15,7 @@
 import { getJSON, sendJSON, api } from "./api.js";
 import { lineChart } from "./charts.js";
 import { showFindings } from "./feedback.js";
+import { Mic, audioContext, MIC_SVG } from "./audio.js";
 import { startTalk } from "./talk.js";
 
 const view = document.getElementById("view");
@@ -477,31 +478,62 @@ async function renderProgress() {
     </div>`;
 }
 
-// ---------- 7. review ----------
+// ---------- 7. review: flashcards you answer out loud ----------
+// Each card is one of the learner's own mistakes (a weak word or a grammar
+// error). They SAY the better version (or type it); the server checks it
+// (coach/drills.py) and suggests a grade; the learner still picks the grade.
 async function renderReview() {
-  const { cards } = await getJSON("/api/review/due");
+  const [{ cards }, status] = await Promise.all([getJSON("/api/review/due"), refreshStatus()]);
+  const voiceIn = status?.stt?.state === "ready";
+  const mic = new Mic();
+  state.leave = () => mic.close();
   let i = 0;
+
+  const marked = (c) => {
+    // The mistake inside the learner's sentence, without giving the answer away.
+    const text = c.example || c.front;
+    let s = c.start, e = c.end;
+    if (c.kind !== "grammar" || s == null) {
+      s = text.toLowerCase().indexOf(c.front.toLowerCase());
+      e = s + c.front.length;
+    }
+    if (s < 0) return esc(text);
+    return `${esc(text.slice(0, s))}<mark class="${c.kind === "grammar" ? "grammar" : "vocabulary"}">${esc(text.slice(s, e))}</mark>${esc(text.slice(e))}`;
+  };
+
   const show = () => {
     if (i >= cards.length) {
+      mic.close();
       view.innerHTML = `<div class="card empty"><h2>${cards.length ? "All done for today" : "Nothing to review"}</h2>
-        <p>${cards.length ? `You reviewed ${cards.length} word${cards.length === 1 ? "" : "s"}. They'll come back when it's time.` : "Words flagged in your sessions become flashcards here."}</p>
+        <p>${cards.length ? `You reviewed ${plural(cards.length, "card")}. They'll come back when it's time.` : "Weak words and grammar mistakes from your sessions become cards here."}</p>
         <a class="btn primary" href="#/home">Back home</a></div>`;
+      refreshSidebar();
       return;
     }
     const c = cards[i];
+    const grammar = c.kind === "grammar";
     view.innerHTML = `
-      <div class="stack" style="max-width:560px;margin:0 auto">
-        <p class="muted">Card ${i + 1} of ${cards.length}</p>
+      <div class="stack" style="max-width:600px;margin:0 auto">
+        <p class="muted">Card ${i + 1} of ${cards.length} · ${grammar ? "Grammar" : "Word choice"}</p>
         <div class="card flash">
           <p class="muted small">You said</p>
-          <div class="front">“${esc(c.front)}”</div>
-          ${c.example ? `<p class="example">${esc(c.example)}</p>` : ""}
-          <p class="muted">Which stronger word could you use? Say it out loud, then reveal.</p>
+          <p class="flash-sentence">${marked(c)}</p>
+          <h2>${grammar ? "Say it correctly" : "Say it again with a stronger word"}</h2>
+          <div class="answer-row">
+            ${voiceIn ? `<button class="mic" id="say" aria-label="Tap to speak, tap again to stop">${MIC_SVG}</button>` : ""}
+            <form class="composer" id="typed-answer">
+              <input type="text" id="answer" autocomplete="off" placeholder="${voiceIn ? "…or type it" : "Type it"}" aria-label="Your answer">
+              <button type="submit">Check</button>
+            </form>
+          </div>
+          <p class="muted small" id="say-hint">${voiceIn ? "Tap the mic, say the whole sentence, tap again." : ""}</p>
+          <div id="result" class="drill-result" hidden></div>
           <div id="back" hidden>
-            <p style="font-size:1.3rem"><b>${(c.suggestions || []).map(esc).join(", ")}</b></p>
+            ${grammar ? `<p class="flash-answer">${esc(c.corrected)}</p>`
+                      : `<p class="flash-answer">${(c.suggestions || []).map(esc).join(", ")}</p>`}
             <p class="muted small">${esc(c.message || "")}</p>
           </div>
-          <button class="primary" id="reveal">Show answer</button>
+          <button class="ghost" id="reveal" type="button">Just show the answer</button>
         </div>
         <div class="grades" id="grades" hidden>
           <button data-g="0">Again<small>forgot</small></button>
@@ -510,11 +542,50 @@ async function renderReview() {
           <button data-g="5">Easy<small>instantly</small></button>
         </div>
       </div>`;
-    view.querySelector("#reveal").onclick = (e) => {
-      e.target.hidden = true;
-      view.querySelector("#back").hidden = false;
-      view.querySelector("#grades").hidden = false;
+    const $ = (id) => view.querySelector(`#${id}`);
+    const reveal = (suggest) => {
+      $("back").hidden = false;
+      $("grades").hidden = false;
+      $("reveal").hidden = true;
+      if (suggest !== undefined) view.querySelector(`[data-g="${suggest}"]`).classList.add("primary");
     };
+    const check = async (form, spoken) => {
+      $("result").hidden = false;
+      $("result").innerHTML = `<span class="spinner"></span> Checking…`;
+      try {
+        const r = await (await api(`/api/review/${c.id}/check`, { method: "POST", form })).json();
+        $("result").className = `drill-result ${r.correct ? "ok" : "no"}`;
+        $("result").innerHTML = (spoken && r.heard ? `<div class="muted small">I heard: “${esc(r.heard)}”</div>` : "")
+          + `<b>${r.correct ? "✓ Correct!" : "Not quite."}</b> ${esc(r.why)}`;
+        if (r.heard) reveal(r.correct ? 4 : 0);   // suggest Good / Again; the learner decides
+      } catch (err) { $("result").textContent = err.message; }
+    };
+    $("typed-answer").addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (!$("answer").value.trim()) return;
+      const f = new FormData();
+      f.append("text", $("answer").value);
+      check(f, false);
+    });
+    $("say")?.addEventListener("click", async () => {
+      const btn = $("say");
+      if (!mic.recording) {
+        try { await mic.open(); } catch (err) { toast(err.message); return; }
+        audioContext();
+        mic.start();
+        btn.classList.add("recording");
+        $("say-hint").textContent = "Listening… tap again when you're done.";
+        return;
+      }
+      btn.classList.remove("recording");
+      $("say-hint").textContent = "";
+      const blob = await mic.stop();
+      if (!blob) return;
+      const f = new FormData();
+      f.append("audio", blob, "answer.webm");
+      check(f, true);
+    });
+    $("reveal").addEventListener("click", () => reveal());
     view.querySelectorAll("[data-g]").forEach((b) => (b.onclick = async () => {
       try {
         await sendJSON(`/api/review/${c.id}`, { grade: Number(b.dataset.g) });
