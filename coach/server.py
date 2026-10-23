@@ -84,7 +84,8 @@ FEEDBACK_POLICIES = {
 }
 # For "gentle": which single finding matters most. Grammar errors change
 # meaning; weak words and fillers are style.
-IMPORTANCE = {"grammar": 0, "intensified_basic": 1, "basic_word": 2, "repetition": 3, "filler_phrase": 4, "filler": 5}
+IMPORTANCE = {"grammar": 0, "intensified_basic": 1, "basic_word": 2, "repetition": 3, "long_pause": 4,
+              "filler_phrase": 5, "filler": 6}
 
 
 @dataclass

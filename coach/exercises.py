@@ -82,6 +82,11 @@ def make_exercise(issue: dict, i: int = 0) -> dict:
         title = f"Drop “{text}”"
         prompt = f"Answer in three sentences, without saying “{text}”: {QUESTIONS[i % len(QUESTIONS)]}"
         tip = "Record yourself in the next session and listen for it in the report."
+    elif kind == "long_pause":
+        title = "Keep talking through a pause"
+        prompt = (f"Answer in about 45 seconds, without going silent for more than a second: "
+                  f"{QUESTIONS[i % len(QUESTIONS)]}")
+        tip = "When you need time, say “let me think…” or “that's a good question” instead of stopping."
     elif kind == "repetition":
         title = "Say it smoothly"
         smooth = _remove_repetition(issue["sentence"], text)

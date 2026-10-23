@@ -142,14 +142,14 @@ def test_grammar_works_sentence_by_sentence():
 
 def test_default_analyzers_respects_flags_and_missing_models(monkeypatch):
     names = lambda cfg: [a.name for a in default_analyzers(cfg)]   # noqa: E731
-    assert names(None) == ["vocabulary", "fluency"]
+    assert names(None) == ["vocabulary", "fluency", "pace"]
     monkeypatch.setattr(grammar_mod, "get_corrector", lambda: FakeCorrector({}))
-    assert names({"analyzers": {"grammar": True}}) == ["vocabulary", "fluency", "grammar"]
+    assert names({"analyzers": {"grammar": True}}) == ["vocabulary", "fluency", "pace", "grammar"]
 
     def missing():
         raise Unavailable("no model")
     monkeypatch.setattr(grammar_mod, "get_corrector", missing)
-    assert names({"analyzers": {"grammar": True}}) == ["vocabulary", "fluency"]
+    assert names({"analyzers": {"grammar": True}}) == ["vocabulary", "fluency", "pace"]
 
 
 def test_eval_forms_accept_inflections():

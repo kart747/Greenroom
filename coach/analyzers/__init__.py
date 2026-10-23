@@ -10,6 +10,7 @@ from ..errors import Unavailable
 from .base import Analyzer, AnalyzerResult, Finding
 from .fluency import FluencyAnalyzer
 from .grammar import GrammarAnalyzer
+from .pace import PaceAnalyzer
 from .vocabulary import VocabularyAnalyzer
 
 
@@ -22,6 +23,7 @@ def default_analyzers(cfg: dict | None = None) -> list[Analyzer]:
         # thread, and falls back to the baseline order if the model is missing.
         VocabularyAnalyzer(use_contextual=flags.get("contextual", False)),
         FluencyAnalyzer(),
+        PaceAnalyzer(),        # speaking speed + pauses; only spoken turns have timings
     ]
     if flags.get("grammar", False):
         try:
@@ -32,4 +34,4 @@ def default_analyzers(cfg: dict | None = None) -> list[Analyzer]:
 
 
 __all__ = ["Analyzer", "AnalyzerResult", "Finding", "FluencyAnalyzer", "GrammarAnalyzer",
-           "VocabularyAnalyzer", "default_analyzers"]
+           "PaceAnalyzer", "VocabularyAnalyzer", "default_analyzers"]

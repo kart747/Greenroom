@@ -27,6 +27,8 @@ def progress(sessions: list[dict]) -> dict:
             "type_token_ratio": vocab.get("type_token_ratio"),
             "fillers_per_100_words": fluency.get("fillers_per_100_words"),
             "grammar_errors_per_turn": avg.get("grammar", {}).get("error_count"),
+            "words_per_minute": avg.get("pace", {}).get("words_per_minute"),
+            "pauses_per_minute": avg.get("pace", {}).get("pauses_per_minute"),
             "latency_total_s": s.get("latency", {}).get("total_s"),
         })
         # Only vocabulary spans: they are the words worth drilling (and they
