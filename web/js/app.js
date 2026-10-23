@@ -69,6 +69,7 @@ const DESTINATIONS = [["uk", "United Kingdom"], ["ireland", "Ireland"], ["austra
 function fmtDate(ts) {
   return new Date(ts * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const round = (v, d = 2) => (v === null || v === undefined ? "–" : Number(v).toFixed(d));
 
 // ---------- router ----------
@@ -280,13 +281,16 @@ async function renderHome() {
       <section class="stack">
         <h2>Or practise a real situation</h2>
         <p class="muted small">Roleplay characters stay in character and never correct you; you get feedback at the end.</p>
-        <div class="grid">${personas.map((p) => personaCard(p, llmOff)).join("")}</div>
+        <div class="grid">${personas.map((p) => personaCard(p, llmOff)).join("")}
+          <div class="card persona own" role="button" tabindex="0" data-id="new">
+            <div class="avatar" aria-hidden="true">＋</div><h3>Your own situation</h3>
+            <span class="muted small">Describe it, or paste a job description, and practise it</span></div></div>
       </section>
       <div class="grid">
         <a class="card link-card" href="#/review"><h3>Review</h3>
           <p><b class="big-num">${home.due_cards}</b> <span class="muted">word${home.due_cards === 1 ? "" : "s"} due</span></p></a>
         ${home.last_session ? `<a class="card link-card" href="#/report/${home.last_session.id}"><h3>Last report</h3>
-          <p class="muted small">${fmtDate(home.last_session.started)} · ${esc(home.last_session.persona_name)} · ${home.last_session.summary.turns} turns</p></a>` : ""}
+          <p class="muted small">${fmtDate(home.last_session.started)} · ${esc(home.last_session.persona_name)} · ${plural(home.last_session.summary.turns, "turn")}</p></a>` : ""}
       </div>
     </div>`;
   const start = (text) => {
@@ -312,23 +316,29 @@ export function autoGrow(ta, max = 180) {
   fit();
 }
 
-function personaCard(p, disabled) {
-  return `<button class="card persona" data-id="${esc(p.id)}" ${disabled ? "disabled" : ""}>
+function personaCard(p, disabled, deletable = false) {
+  const badge = p.kind === "job" ? "Job interview" : p.kind ? "Your situation" : `${p.accent === "british" ? "British" : "American"} accent`;
+  return `<div class="card persona" role="button" tabindex="0" data-id="${esc(p.id)}" ${disabled ? 'aria-disabled="true"' : ""}>
+    ${deletable ? `<button class="icon-btn persona-del" data-delete="${esc(p.id.replace("custom_", ""))}" aria-label="Delete ${esc(p.name)}">✕</button>` : ""}
     <div class="avatar" aria-hidden="true">${esc(p.name.replace(/^(Mr|Ms|Mrs|Dr|Officer)\.?\s+/, "")[0])}</div>
     <h3>${esc(p.name)}</h3>
     <span class="muted small">${esc(p.role)}</span>
-    <span><span class="badge">${p.accent === "british" ? "British" : "American"} accent</span></span>
-  </button>`;
+    <span><span class="badge">${esc(badge)}</span></span>
+  </div>`;
 }
 
 function wirePersonaCards() {
-  view.querySelectorAll(".persona").forEach((b) =>
-    b.addEventListener("click", () => { location.hash = `#/talk/${b.dataset.id}`; }));
+  view.querySelectorAll(".persona[data-id]").forEach((card) => {
+    if (card.getAttribute("aria-disabled") === "true") return;
+    const go = () => { location.hash = card.dataset.id === "new" ? "#/characters" : `#/talk/${card.dataset.id}`; };
+    card.addEventListener("click", go);
+    card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+  });
 }
 
 // ---------- 3. choose character ----------
 async function renderCharacters() {
-  const [personas, status] = await Promise.all([getJSON("/api/personas"), refreshStatus()]);
+  const [personas, mine, status] = await Promise.all([getJSON("/api/personas"), getJSON("/api/scenarios"), refreshStatus()]);
   const llmOff = status?.llm?.state === "off";
   view.innerHTML = `
     <div class="stack">
@@ -337,10 +347,57 @@ async function renderCharacters() {
         They stay in character and never correct you mid-conversation. Feedback comes at the end.
         Want corrections as you go? <a href="#/tutor/new">Chat with Sam</a> instead.</p></div>
       ${llmOff ? `<div class="banner error">${esc(status.llm.message)}</div>` : statusBanner(status)}
+      <section class="card create-scenario">
+        <h2>Practise your own situation</h2>
+        <div class="row" role="tablist">
+          <button class="chip active" type="button" data-kind="situation" role="tab" aria-selected="true">Describe a situation</button>
+          <button class="chip" type="button" data-kind="job" role="tab" aria-selected="false">Paste a job description</button>
+        </div>
+        <textarea id="sc-text" rows="3" maxlength="3000" placeholder="${esc(SCENARIO_HINT.situation)}"></textarea>
+        <div class="row"><button class="primary" id="sc-create" type="button" ${llmOff ? "disabled" : ""}>Create the character</button>
+          <span class="muted small" id="sc-status">Greenroom invents the other person; you start talking right away.</span></div>
+      </section>
+      ${mine.length ? `<section class="stack"><h2>Your scenarios</h2>
+        <div class="grid">${mine.map((p) => personaCard(p, llmOff, true)).join("")}</div></section>` : ""}
+      <h2>Ready-made characters</h2>
       <div class="grid">${personas.map((p) => personaCard(p, llmOff)).join("")}</div>
     </div>`;
   wirePersonaCards();
+  let kind = "situation";
+  const text = view.querySelector("#sc-text");
+  view.querySelectorAll("[data-kind]").forEach((tab) => tab.addEventListener("click", () => {
+    kind = tab.dataset.kind;
+    view.querySelectorAll("[data-kind]").forEach((t) => {
+      t.classList.toggle("active", t === tab);
+      t.setAttribute("aria-selected", String(t === tab));
+    });
+    text.placeholder = SCENARIO_HINT[kind];
+    text.rows = kind === "job" ? 8 : 3;
+    text.focus();
+  }));
+  view.querySelector("#sc-create").addEventListener("click", async (e) => {
+    const btn = e.target;
+    btn.disabled = true;
+    view.querySelector("#sc-status").innerHTML = `<span class="spinner"></span> Designing your character…`;
+    try {
+      const p = await sendJSON("/api/scenarios", { text: text.value, kind });
+      location.hash = `#/talk/${p.id}`;          // straight into the conversation
+    } catch (err) {
+      view.querySelector("#sc-status").textContent = err.message;
+      btn.disabled = false;
+    }
+  });
+  view.querySelectorAll("[data-delete]").forEach((b) => b.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    await api(`/api/scenarios/${b.dataset.delete}`, { method: "DELETE" });
+    renderCharacters();
+  }));
 }
+
+const SCENARIO_HINT = {
+  situation: "e.g. I need to ask my manager for two days of leave for my sister's wedding.",
+  job: "Paste the job description: title, responsibilities, skills…",
+};
 
 // ---------- 5. report ----------
 async function renderReport(id) {
@@ -353,7 +410,7 @@ async function renderReport(id) {
     <div class="stack">
       <div class="row spread">
         <div><h1>Your feedback</h1>
-          <p class="muted">${fmtDate(r.started)} · ${esc(r.persona_name)} · ${r.summary.turns} turns · ${Math.round((r.duration_s || 0) / 60)} min</p></div>
+          <p class="muted">${fmtDate(r.started)} · ${esc(r.persona_name)} · ${plural(r.summary.turns, "turn")} · ${Math.max(1, Math.round((r.duration_s || 0) / 60))} min</p></div>
         <div class="row"><a class="btn" href="#/progress">Progress</a>
           ${r.mode === "tutor" ? `<a class="btn primary" href="#/tutor/${id}">Continue this chat</a>`
                                : `<a class="btn primary" href="#/characters">Practise again</a>`}</div>
@@ -415,7 +472,7 @@ async function renderProgress() {
           : `<p class="muted">Nothing flagged yet.</p>`}
       </section>
       <section class="card"><h2>All sessions</h2>
-        <ol class="turns" reversed>${[...p.sessions].reverse().map((s) => `<li><a href="#/report/${s.id}">${fmtDate(s.started)}: ${esc(s.persona_name)}</a> <span class="muted small">(${s.turns} turns)</span></li>`).join("")}</ol>
+        <ol class="turns" reversed>${[...p.sessions].reverse().map((s) => `<li><a href="#/report/${s.id}">${fmtDate(s.started)}: ${esc(s.persona_name)}</a> <span class="muted small">(${plural(s.turns, "turn")})</span></li>`).join("")}</ol>
       </section>
     </div>`;
 }

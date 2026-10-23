@@ -188,7 +188,13 @@ input[type=text], select, textarea {
 
 /* ---- characters ---- */
 .persona { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 0.5rem; text-align: left; }
+.persona { position: relative; cursor: pointer; }
 .persona:hover { border-color: var(--primary); transform: translateY(-1px); }
+.persona[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+.persona.own { border-style: dashed; }
+.persona-del { position: absolute; top: 0.5rem; right: 0.5rem; font-size: 0.9rem; color: var(--muted); }
+.create-scenario textarea { margin: 0.75rem 0; }
+.chip.active { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); font-weight: 600; }
 .avatar {
   width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center;
   background: var(--primary-soft); color: var(--primary); font-weight: 700; font-size: 1.3rem;
