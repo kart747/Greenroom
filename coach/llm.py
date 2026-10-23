@@ -1,6 +1,13 @@
-"""Local LLM client (Ollama). Streams tokens so the reply can start fast --
-later the voice layer will feed the first finished sentence to TTS while the
-rest is still being generated."""
+"""Local LLM client (Ollama).
+
+Two kinds of calls:
+  stream_chat()    the conversation itself; streamed token by token so the
+                   voice pipeline can speak the first sentence early
+  complete_json()  small helper tasks (hints, "say it better", word meanings,
+                   remembering facts). Ollama's structured output forces the
+                   answer into a JSON schema, so a 4B model can't ramble or
+                   break the format the app parses.
+"""
 
 from __future__ import annotations
 
@@ -20,6 +27,8 @@ KEEP_ALIVE = "30m"
 
 class ChatModel(Protocol):
     def stream_chat(self, messages: list[dict]) -> Iterator[str]: ...
+    def complete_json(self, messages: list[dict], schema: dict, temperature: float = 0.3,
+                      max_tokens: int = 300) -> dict: ...
 
 
 class OllamaChat:
@@ -47,6 +56,22 @@ class OllamaChat:
                         break
         except requests.ConnectionError as exc:
             raise RuntimeError(f"Can't reach Ollama at {self.host}. Is `ollama serve` running?") from exc
+
+    def complete_json(self, messages: list[dict], schema: dict, temperature: float = 0.3,
+                      max_tokens: int = 300) -> dict:
+        """One non-streamed answer, shaped by a JSON schema. A lower temperature
+        than the chat: helper answers should be reliable, not creative."""
+        payload = {"model": self.model, "messages": messages, "stream": False, "format": schema,
+                   "options": {"temperature": temperature, "num_predict": max_tokens},
+                   "keep_alive": KEEP_ALIVE}
+        try:
+            r = requests.post(f"{self.host}/api/chat", json=payload, timeout=120)
+            r.raise_for_status()
+            return json.loads(r.json()["message"]["content"])
+        except requests.ConnectionError as exc:
+            raise RuntimeError(f"Can't reach Ollama at {self.host}. Is `ollama serve` running?") from exc
+        except (requests.RequestException, KeyError, ValueError) as exc:
+            raise RuntimeError(f"The coach couldn't answer that ({exc}).") from exc
 
     def check(self) -> None:
         """Raise Unavailable unless Ollama is running and has this model pulled.
