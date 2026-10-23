@@ -24,7 +24,8 @@ class Engines:
         """With load=False the given engines are used as-is (tests); a missing
         one is simply reported as off."""
         self.cfg = cfg
-        self.llm = llm or OllamaChat(**{k: cfg["llm"][k] for k in ("model", "host", "temperature")})
+        self.llm = llm or OllamaChat(**{k: cfg["llm"][k] for k in ("model", "host", "temperature")},
+                                     num_ctx=cfg["llm"].get("num_ctx"))
         self.stt, self.tts = stt, tts
         self._status = {
             "stt": {"state": READY if stt else OFF, "message": "" if stt else "Voice input is off."},

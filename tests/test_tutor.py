@@ -236,3 +236,22 @@ def test_resume_rebuilds_session_state():
     rec2 = r.finish()
     assert [t["text"] for t in rec2["turns"]] == ["I goed to school.", "Sorry, I went."]
     assert rec2["started"] == rec["started"] and rec2["mode"] == "tutor"
+
+
+def test_llm_sends_num_ctx_only_when_set(monkeypatch):
+    from coach import llm as llm_mod
+
+    sent = []
+
+    class Resp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"message": {"content": '{"ok": true}'}}
+
+    monkeypatch.setattr(llm_mod.requests, "post", lambda url, json=None, **k: sent.append(json) or Resp())
+    llm_mod.OllamaChat("m", num_ctx=3072).complete_json([], {"type": "object"})
+    llm_mod.OllamaChat("m").complete_json([], {"type": "object"})
+    assert sent[0]["options"]["num_ctx"] == 3072 and "num_ctx" not in sent[1]["options"]
+    assert sent[0]["options"]["num_predict"] == 300

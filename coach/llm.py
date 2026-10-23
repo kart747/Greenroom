@@ -33,14 +33,24 @@ class ChatModel(Protocol):
 
 class OllamaChat:
     def __init__(self, model: str = "qwen2.5:3b", host: str = "http://localhost:11434",
-                 temperature: float = 0.7):
+                 temperature: float = 0.7, num_ctx: int | None = None):
+        """num_ctx: how many tokens of conversation the model keeps. Its cache
+        lives in GPU memory, so on a 4 GB card it decides whether the model
+        fits beside Whisper (see config.py). None = Ollama's default."""
         self.model = model
         self.host = host.rstrip("/")
         self.temperature = temperature
+        self.num_ctx = num_ctx
+
+    def _options(self, **extra) -> dict:
+        opts = {"temperature": self.temperature, **extra}
+        if self.num_ctx:
+            opts["num_ctx"] = self.num_ctx
+        return opts
 
     def stream_chat(self, messages: list[dict]) -> Iterator[str]:
         payload = {"model": self.model, "messages": messages, "stream": True,
-                   "options": {"temperature": self.temperature}, "keep_alive": KEEP_ALIVE}
+                   "options": self._options(), "keep_alive": KEEP_ALIVE}
         try:
             with requests.post(f"{self.host}/api/chat", json=payload, stream=True, timeout=120) as r:
                 if r.status_code == 404:
@@ -62,7 +72,7 @@ class OllamaChat:
         """One non-streamed answer, shaped by a JSON schema. A lower temperature
         than the chat: helper answers should be reliable, not creative."""
         payload = {"model": self.model, "messages": messages, "stream": False, "format": schema,
-                   "options": {"temperature": temperature, "num_predict": max_tokens},
+                   "options": self._options(temperature=temperature, num_predict=max_tokens),
                    "keep_alive": KEEP_ALIVE}
         try:
             r = requests.post(f"{self.host}/api/chat", json=payload, timeout=120)
@@ -91,7 +101,10 @@ class OllamaChat:
         """Load the model into (GPU) memory now, so the learner's first reply
         doesn't include the ~15 s cold start. An empty prompt only loads it."""
         try:
+            # Same options as real requests: a different num_ctx would make
+            # Ollama reload the model at the learner's first turn.
             requests.post(f"{self.host}/api/generate",
-                          json={"model": self.model, "prompt": "", "keep_alive": KEEP_ALIVE}, timeout=120)
+                          json={"model": self.model, "prompt": "", "keep_alive": KEEP_ALIVE,
+                                "options": self._options()}, timeout=120)
         except requests.RequestException:
             pass  # Ollama not running: status() will report it
