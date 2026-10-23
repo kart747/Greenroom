@@ -4,13 +4,21 @@
 
 Every performer gets a green room to prepare before going on stage. Greenroom is
 that space for English learners: an **offline, open-source English speaking
-coach** with a real desktop app. You talk (out loud, or by typing) to a
-character: a friendly buddy, an HR interviewer, a visa officer, a university
-admissions tutor, an impatient customer. A local LLM plays the role and
-answers in a natural voice, while NLP analyzers quietly study your English in
-the background. When you finish, you get a report with your own sentences
-highlighted, three practice tasks, flashcards for the words you overuse, and
-progress charts across sessions.
+coach** with a real desktop app, laid out like a chat app. Two ways to practise:
+
+- **Chat with Sam, your English tutor.** Ask anything ("what's wrong with *I am
+  having two years experience*?"), or just talk. Sam explains, corrects in the
+  style you choose, and remembers what you told it last time.
+- **Roleplay a real situation** with a character: a friendly buddy, an HR
+  interviewer, a visa officer, a university admissions tutor, an impatient
+  customer. They stay in character and never correct you.
+
+You talk out loud or type. A local LLM answers in a natural voice while NLP
+analyzers quietly study your English in the background. You choose whether
+their feedback appears as small markers under your messages during the chat or
+only in the report afterwards. Every session ends with a report: your own
+sentences highlighted, three practice tasks, flashcards for the words you
+overuse, and progress charts across sessions.
 
 Everything runs on your machine: no accounts, no cloud APIs, no CDN. Models are
 downloaded once by a setup script; after that the app works with the network
@@ -18,13 +26,14 @@ cable unplugged.
 
 | | |
 |---|---|
-| ![Conversation](docs/screenshots/conversation.png) | ![Report](docs/screenshots/report.png) |
-| **Conversation**: push-to-talk or hands-free, live transcript, the coach speaks back | **Report**: findings highlighted in your own words, hover for the why and the fix |
+| ![Tutor chat](docs/screenshots/tutor_chat.png) | ![Report](docs/screenshots/report.png) |
+| **Chat with Sam**: feedback markers under your message, "Say it better", word meanings, ideas when you're stuck | **Report**: findings highlighted in your own words, hover for the why and the fix |
 
 ## Contents
 
 - [Quick start](#quick-start)
 - [The screens](#the-screens)
+- [Tutor mode and in-chat feedback](#tutor-mode-and-in-chat-feedback)
 - [How it works](#how-it-works)
 - [Every module explained](#every-module-explained)
 - [Evaluation](#evaluation)
@@ -59,7 +68,7 @@ pywebview can't start). Closing the window stops the app.
 Developer commands:
 
 ```bash
-python -m pytest -q                      # 75 tests; no GPU, mic, Ollama or downloads needed
+python -m pytest -q                      # 88 tests; no GPU, mic, Ollama or downloads needed
 python -m eval.eval_vocab --table        # vocabulary: baseline vs DistilBERT
 python -m eval.eval_grammar --table      # grammar correction P/R/F1
 python -m coach.config                   # detected hardware + effective config
@@ -72,22 +81,25 @@ python -m coach.stt recording.webm       # transcribe a file
 | | |
 |---|---|
 | ![Onboarding](docs/screenshots/onboarding.png) | ![Home](docs/screenshots/home.png) |
-| **1. Onboarding** (first run): name, goal, level A2–C1, accent, study destination | **2. Home**: greeting, start practice, flashcards due, last session |
+| **1. Onboarding** (first run): name, goal, level A2–C1, accent, study destination | **2. Start page**: ask Sam anything, conversation starters for your goal, roleplays; the sidebar keeps your recent conversations |
+| ![Tutor chat](docs/screenshots/tutor_chat.png) | ![Roleplay with feedback](docs/screenshots/roleplay_feedback.png) |
+| **3. Chat with Sam**: markdown answers, markers under your messages, "Say it better", hints, word meanings | **4. Roleplay**: the character stays in character; with "Gently" chosen, one tip appears under your message |
 | ![Characters](docs/screenshots/characters.png) | ![Conversation](docs/screenshots/conversation.png) |
-| **3. Choose character**: filtered by your goal + everyday practice; accent shown | **4. Conversation**: big mic button, hands-free toggle, text fallback |
+| **Choose a roleplay**: filtered by your goal + everyday practice; accent shown | **Voice**: push-to-talk or hands-free (barge-in), live transcript |
 | ![Report](docs/screenshots/report.png) | ![Progress](docs/screenshots/progress.png) |
 | **5. Report**: highlights, 3 exercises, numbers | **6. Progress**: trends (inline SVG), most-flagged words, all sessions |
 | ![Review](docs/screenshots/review.png) | ![Settings](docs/screenshots/settings.png) |
-| **7. Review**: flashcards with Again / Hard / Good / Easy (SM-2) | **8. Settings**: profile, accent, hands-free pause, model status |
+| **7. Review**: flashcards with Again / Hard / Good / Easy (SM-2) | **8. Settings**: profile, in-chat feedback, Sam's corrections, what Sam remembers, model status |
 
 The layout also works at phone width:
 
-<img src="docs/screenshots/phone_home.png" width="260" alt="Home at phone width"> <img src="docs/screenshots/phone_report.png" width="260" alt="Report at phone width">
+<img src="docs/screenshots/phone_home.png" width="240" alt="Start page at phone width"> <img src="docs/screenshots/phone_sidebar.png" width="240" alt="Sidebar as a drawer at phone width"> <img src="docs/screenshots/phone_report.png" width="240" alt="Report at phone width">
 
 **Characters** (one JSON file each in `personas/`, so adding one = adding a file):
 
 | Character | Role | Goals | Voice |
 |---|---|---|---|
+| **Sam** | **English tutor** (Tutor mode, `"mode": "tutor"`) | everyone | American female |
 | Maya | friendly conversation buddy | general | American female |
 | Mr. Rao | HR interviewer at a tech company | placements, job | British male |
 | Ms. Kapoor | slightly impatient customer on a helpline (you're the agent) | job | American female |
@@ -98,6 +110,73 @@ The layout also works at phone width:
 study abroad uses the destination (UK, Ireland, Australia, New Zealand → British;
 USA, Canada → American); otherwise each character keeps its own accent. The
 character's gender never changes.
+
+## Tutor mode and in-chat feedback
+
+### What the top apps do, and what Greenroom took from them
+
+Before this part was built, the features of the leading English-speaking apps
+were compared from their public descriptions and reviews (not by decompiling
+them: that breaks their terms, and their real value runs on their servers
+anyway):
+
+| Idea | Seen in | In Greenroom |
+|---|---|---|
+| Ask a tutor anything mid-practice | Speak's in-app tutor, Praktika, ChatGPT | **Sam** (Tutor mode) |
+| Feedback inside the conversation | Speak's in-chat feedback; LocalTeacher's correction styles | **Feedback markers** you switch on or off |
+| Remembers you between sessions | Praktika | **Memory** (facts + recurring mistakes) |
+| Roleplays of real situations, feedback afterwards | Speak, Duolingo Max (Roleplay) | Roleplay characters + report (Phases 1–6) |
+| Phoneme-level pronunciation scores | ELSA Speak | planned (Future work) |
+| Exam mock with a band estimate | Stimuler, ELSA Speech Analyzer | planned (Future work) |
+
+### In-chat feedback: the learner chooses
+
+Research on correcting spoken mistakes points both ways: explicit corrections
+are taken up more often than corrections hidden inside the teacher's reply
+(about 50% vs 31% in Lyster & Ranta's classroom study), but how corrections
+affect anxiety depends on the learner's level. So Greenroom lets the learner
+choose, in Settings or with the **Feedback** switch at the top of every chat:
+
+| Choice | During the chat | When to use it |
+|---|---|---|
+| **After the session** (default) | nothing; everything is in the report | focus on fluency, interview rehearsal |
+| **Only with Sam** | markers in tutor chats; roleplays stay clean | learning with Sam, performing in roleplays |
+| **Gently, in every chat** | the single most important mistake per message (grammar > weak words > fillers) | a light touch everywhere |
+| **Every mistake** | all markers, in every chat | focused accuracy practice |
+
+Whatever the choice, **feedback is only ever a marker under the learner's own
+message**; roleplay characters never break character to correct. The markers
+come from the same background analyzers as the report, so they appear a moment
+after the reply and never slow it down. Sam's own spoken corrections are a
+separate setting: gentle (the most important mistake), thorough (up to three) or off.
+
+Both styles were built so they can be compared in use: "Only with Sam" keeps
+correction inside the tutor, "Gently" / "Every mistake" bring it into roleplays.
+
+### Help that never interrupts
+
+- **Need an idea?** Three things you could say next, at your level (any chat).
+- **Say it better**: a fluent version of one of your messages and the main reason
+  (with Sam always; in roleplays only when you chose in-chat feedback).
+- **Word meanings**: select a word in the coach's reply to get a simple
+  meaning, the part of speech and an example.
+- **Play again** on any reply; resumed chats are re-voiced on request.
+
+Each helper is one extra LLM call made only when you press the button, and its
+answer is forced into a JSON schema (Ollama structured outputs), so a small
+model can't break the format the app reads.
+
+### Memory: what Sam remembers
+
+When a tutor chat closes, the LLM reads **only the learner's own messages** and
+lists up to five new facts ("final-year CSE student from Coimbatore", "TCS
+interview next Monday"). Small models make things up, so every fact is checked
+against the learner's words (`memory.grounded()`): if most of its content words
+weren't said, it is dropped. This caught a real case where the 3B model copied
+an example out of the prompt. Recurring mistakes (overused words, grammar slips
+with their fixes) come straight from the reports, with no LLM involved. Both go
+into Sam's prompt; roleplay characters never get them (a real interviewer doesn't
+know your hobbies). Settings shows every fact, with forget-one and forget-all.
 
 ## How it works
 
@@ -170,12 +249,12 @@ it had already produced in its memory, and your new turn starts.
 |---|---|
 | `config.py` | The only place config is read. Hardware defaults (Whisper size/device from GPU VRAM) ← `config.json` ← CLI flags. |
 | `errors.py` | `Unavailable`: the one exception for "this optional feature can't run here", carrying the fix-it message. |
-| `llm.py` | Streaming Ollama client; availability check; warm-up and `keep_alive` so the model stays loaded (cold load measured at 16 s). |
+| `llm.py` | Ollama client: streaming chat for conversations, `complete_json()` (structured output) for helpers; availability check; warm-up and `keep_alive` so the model stays loaded (cold load measured at 16 s). |
 | `stt.py` | faster-whisper wrapper: decodes the browser's webm/opus with PyAV, English only, Silero VAD filter (no hallucinated text on silence), greedy decoding, and a disfluent `initial_prompt` so Whisper keeps "um" and repeated words instead of cleaning them up. |
 | `tts.py` | Kokoro-82M via kokoro-onnx on the CPU; persona voice key → Kokoro voice; British voices use the en-gb phonemizer; returns 16-bit WAV. Checksum-verified download. |
 | `text_stream.py` | `SentenceChunker`: token stream → whole sentences (abbreviations, decimals, initials, quotes handled). |
 | `voice.py` | `VoicePipeline`: one turn = STT → LLM → sentences → TTS, yielding events; measures `stt_s`, `llm_first_token_s`, `tts_first_audio_s`, `total_s`. |
-| `session.py` | One conversation: chat history, background analysis (one worker thread, spaCy isn't thread-safe), the "wait for the reply" gate, partial replies on barge-in, latency averages, the session record. |
+| `session.py` | One conversation: chat history, background analysis (one worker thread, spaCy isn't thread-safe), the "wait for the reply" gate, partial replies on barge-in, latency averages, the session record; `resume()` reopens a saved tutor chat and `ready_feedback()` hands finished findings to the UI without waiting. |
 | `nlp.py` | Shared spaCy pipeline (`en_core_web_sm`), run once per turn. |
 | `analyzers/base.py` | The contract: `Finding`, `AnalyzerResult`, `Analyzer`. |
 | `analyzers/vocabulary.py` | Overused basic words (lemma + POS), intensifier phrases, idiom/phrasal-verb guards, type-token ratio, lemminflect inflection, and DistilBERT contextual ranking. |
@@ -186,25 +265,33 @@ it had already produced in its memory, and your new turn starts.
 | `exercises.py` | Three practice tasks from the top issues, fixed templates per finding kind (no LLM), one per kind first. |
 | `srs.py` | SM-2 spaced repetition (grades 0/3/4/5). |
 | `progress.py` | Series over sessions for the charts; most-flagged vocabulary. |
-| `storage.py` | SQLite at `userdata/greenroom.db`: profile, sessions (record + summary JSON), review cards. Also exports each session to `sessions/*.json`. |
-| `personas.py` | Loads characters, builds the system prompt (level + rules), filters by goal, resolves the accent. |
+| `storage.py` | SQLite at `userdata/greenroom.db`: profile, conversations (record + summary JSON, mode, title), review cards, memory. Migrates older databases in place. Also exports each session to `sessions/*.json`. |
+| `personas.py` | Loads characters, builds the system prompt (level + rules; roleplay vs tutor rules with gentle / thorough / off corrections), filters roleplays by goal, resolves the accent. |
+| `memory.py` | What Sam remembers: facts extracted after tutor chats (checked against the learner's words) and recurring mistakes from the reports, turned into a paragraph for Sam's prompt. |
+| `tutor_tools.py` | The on-demand helpers: hint, say it better, word meaning; each one JSON-schema LLM call. |
 | `engines.py` | Loads and warms all models in a background thread at start-up; live status for the UI. |
-| `server.py` | FastAPI app: the API below + serves `web/`. Each turn runs in its own worker thread and streams NDJSON. |
+| `server.py` | FastAPI app: the API below + serves `web/`. Each turn runs in its own worker thread and streams NDJSON. Applies the in-chat feedback choice; saves open chats when the app shuts down. |
 
 **API** (all local): `GET /api/status` · `GET/PUT /api/profile` · `GET /api/home` ·
-`GET /api/personas` · `POST /api/sessions` (opening line + audio) ·
+`GET /api/personas` · `GET /api/conversations` (sidebar) ·
+`POST /api/sessions` (roleplay, tutor, or `resume_id` of a saved tutor chat) ·
 `POST /api/sessions/{id}/turn` (text or audio → NDJSON: `transcript`, `text`,
 `audio` (base64 WAV per sentence), `done`) · `POST /api/sessions/{id}/abort` ·
-`POST /api/sessions/{id}/end` (report) · `GET /api/reports/{id}` ·
-`GET /api/progress` · `GET /api/review/due` · `POST /api/review/{card}`.
+`GET /api/sessions/{id}/feedback` (markers, filtered by the learner's choice) ·
+`POST /api/sessions/{id}/hint` · `POST /api/sessions/{id}/better` · `POST /api/define` ·
+`POST /api/speak` · `POST /api/sessions/{id}/end` (report) · `GET /api/reports/{id}` ·
+`GET /api/progress` · `GET /api/review/due` · `POST /api/review/{card}` ·
+`GET /api/memory` · `DELETE /api/memory[/{id}]`.
 
 **`web/` (the UI: plain HTML/CSS/JS, ES modules, no build step, no CDN)**
 
 | File | What it does |
 |---|---|
-| `index.html`, `style.css` | Shell and styles: calm palette, light/dark, big targets, phone layout. |
-| `js/app.js` | Hash router and all screens except the conversation; report highlighting with overlapping spans; popovers (hover, tap, keyboard). |
-| `js/talk.js` | The conversation: states (listening / thinking / speaking / idle), push-to-talk (hold, tap-to-toggle, Space), typed turns, NDJSON reading, hands-free wiring, barge-in. |
+| `index.html`, `style.css` | Chat-app shell (sidebar with recent conversations, a drawer on phones) and styles: calm palette, light/dark, big targets. |
+| `js/app.js` | Hash router, sidebar and every screen except the conversation (start page, roleplays, report, progress, review, settings with memory). |
+| `js/talk.js` | The conversation, for Sam and for roleplays: states (listening / thinking / speaking / idle), push-to-talk (hold, tap-to-toggle, Space), typed turns, NDJSON reading, hands-free wiring, barge-in, feedback markers, hints, say it better, word meanings, resuming. |
+| `js/feedback.js` | Findings highlighted inside the learner's sentence, with popovers (hover, tap, keyboard); shared by the report and the chat. |
+| `js/markdown.js` | A tiny, safe markdown renderer for Sam's replies (escapes HTML first). |
 | `js/audio.js` | `Mic` (getUserMedia with echo cancellation, MediaRecorder, RMS level) and `CoachPlayer` (decodes and plays sentence WAVs back to back, in order; instant stop). |
 | `js/vad.js` | `EnergyVAD`: hands-free voice activity detection (below). |
 | `js/charts.js` | A 40-line inline-SVG line chart (no chart library). |
@@ -352,15 +439,18 @@ The hands-free pause length is per learner (Settings, 0.6–3.0 s, default 1.2 s
 
 ## Tests
 
-`python -m pytest -q` runs **75 tests in ~4 s** with fakes for the LLM, STT, TTS,
+`python -m pytest -q` runs **88 tests in ~5 s** with fakes for the LLM, STT, TTS,
 fill-mask model and grammar corrector (`tests/fakes.py` and per-test fakes), so
 no GPU, microphone, Ollama or downloaded model is needed. They cover the
 sentence chunker, the voice pipeline (event order, latency, barge-in),
 storage, the full HTTP API (including abort and offline LLM), persona
 filtering and accents, the analyzers (baseline, BERT ranking, inflection,
 idioms, grammar diffing), the analysis gate, exercises, SM-2 and review
-cards. The browser's VAD is unit-tested in JavaScript (`tests/js/test_vad.mjs`,
-run by pytest when Node.js is installed).
+cards, and Tutor mode (prompts, memory and its grounding check, all four
+in-chat feedback choices in both modes, hints, say it better, word meanings,
+resuming, saving open chats on shutdown). The browser's VAD and markdown
+renderer are unit-tested in JavaScript (`tests/js/*.mjs`, run by pytest when
+Node.js is installed).
 
 The UI was exercised end to end in real Chrome with real models (Playwright,
 with Chrome's fake microphone playing recorded learner speech): onboarding,
@@ -386,12 +476,24 @@ progress and settings, with no console errors.
 - The desktop window was verified on Linux (Wayland, Qt WebEngine); macOS and
   Windows use pywebview's native backends and were not tested.
 
+- **The 3B model is the weak spot of the helpers.** Observed: it labelled
+  "sounds" a preposition, and one "Say it better" kept "very good". A stronger
+  ≤5B model (Qwen3 4B Instruct) has been downloaded for comparison.
+- Memory extraction can still miss facts or keep a half-true one; the
+  grounding check removes invented facts, not misunderstood ones. Settings lets
+  the learner delete any fact.
+
 ## Future work
 
 - Faster first audio: Kokoro on the GPU (onnxruntime-gpu) on cards with more
   VRAM, the int8 Kokoro model, or speaking the first clause before the first
   full stop.
-- Pronunciation feedback with a phoneme-level model and forced alignment.
+- Measure Qwen3 4B Instruct against qwen2.5:3b as the tutor (quality of answers,
+  latency, VRAM next to Whisper on a 4 GB GPU) and switch if it wins.
+- Pronunciation feedback with a phoneme-level model (wav2vec2 phoneme
+  recognition vs expected phonemes), evaluated on the speechocean762 corpus.
+- An IELTS Speaking mock (Parts 1–3) with a clearly labelled band estimate;
+  custom scenarios from a job description or résumé.
 - A grammar model fine-tuned on Indian-English learner data (better recall on
   tense/aspect errors), and grammar flashcards.
 - A CEFR word list instead of the hand-made lexicon; collocation suggestions.
