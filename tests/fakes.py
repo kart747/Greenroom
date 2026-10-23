@@ -7,14 +7,30 @@ from __future__ import annotations
 class FakeLLM:
     """Replaces OllamaChat: streams a fixed reply in small pieces, like Ollama does."""
 
-    def __init__(self, reply: str = "That sounds great! Tell me more about it?"):
+    def __init__(self, reply: str = "That sounds great! Tell me more about it?", facts=None):
         self.reply = reply
         self.seen: list[list[dict]] = []
+        self.json_calls: list[tuple[list[dict], dict]] = []
+        self.facts = facts or []
 
     def stream_chat(self, messages):
         self.seen.append(list(messages))
         for word in self.reply.split(" "):
             yield word + " "
+
+    def complete_json(self, messages, schema, temperature=0.3, max_tokens=300):
+        """Answers shaped like the schema asks, so helper code paths run for real."""
+        self.json_calls.append((messages, schema))
+        props = schema["properties"]
+        if "suggestions" in props:
+            return {"suggestions": ["I studied computer science.", "What about you?", "I live in Chennai."]}
+        if "better" in props:
+            return {"better": "I have two years of experience.", "why": "Use 'have' for experience, not 'am having'."}
+        if "meaning" in props:
+            return {"meaning": "very bad or worrying", "example": "The traffic was dreadful.", "part_of_speech": "adjective"}
+        if "facts" in props:
+            return {"facts": list(self.facts)}
+        raise AssertionError(f"unexpected schema {schema}")
 
     def check(self):
         pass
