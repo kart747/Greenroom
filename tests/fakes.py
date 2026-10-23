@@ -30,6 +30,10 @@ class FakeLLM:
             return {"meaning": "very bad or worrying", "example": "The traffic was dreadful.", "part_of_speech": "adjective"}
         if "facts" in props:
             return {"facts": list(self.facts)}
+        if "personality" in props:
+            return {"name": "Ms. Iyer", "role": "Team manager at an IT company",
+                    "personality": "Busy but fair. Asks why the leave is needed and who will cover the work.",
+                    "opening": "Hi, you wanted to talk to me about something?", "gender": "female"}
         raise AssertionError(f"unexpected schema {schema}")
 
     def check(self):

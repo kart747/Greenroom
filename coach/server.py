@@ -21,6 +21,8 @@ API overview (all JSON unless noted):
   POST /api/define                  meaning of a word in its sentence
   POST /api/speak                   any text -> WAV (replay a message, hear a better version)
   GET  /api/memory, DELETE /api/memory[/{id}]   what the tutor remembers; forget it
+  GET  /api/scenarios, POST /api/scenarios, DELETE /api/scenarios/{id}
+                                    the learner's own roleplay situations (LLM-designed characters)
   GET  /api/reports/{db_id}         reopen an old report
   GET  /api/progress                trends over all sessions
   GET  /api/review/due              flashcards due now
@@ -53,7 +55,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import memory, srs, tutor_tools
+from . import memory, scenarios, srs, tutor_tools
 from .analyzers import default_analyzers
 from .engines import Engines
 from .errors import Unavailable
@@ -127,6 +129,11 @@ class DefineIn(BaseModel):
     sentence: str = ""
 
 
+class ScenarioIn(BaseModel):
+    text: str
+    kind: str = "situation"         # "situation" (describe it) or "job" (paste a job description)
+
+
 class SpeakIn(BaseModel):
     text: str
     session_id: str | None = None   # speak in that conversation's voice
@@ -138,7 +145,11 @@ class GradeIn(BaseModel):
 
 def create_app(cfg: dict, engines: Engines, storage: Storage,
                personas: dict[str, Persona] | None = None) -> FastAPI:
-    personas = personas or load_personas()
+    personas = dict(personas or load_personas())
+    # The learner's own scenarios join the characters (hidden ones too, so old
+    # reports keep their names); the roleplay list only shows visible ones.
+    for sc in storage.list_scenarios(include_hidden=True):
+        personas[f"custom_{sc['id']}"] = scenarios.to_persona(sc["id"], sc)
     live: dict[str, LiveSession] = {}
 
     @asynccontextmanager
@@ -340,6 +351,29 @@ def create_app(cfg: dict, engines: Engines, storage: Storage,
         ls = live.get(body.session_id or "")
         voice = ls.pipeline.voice if ls else resolve_voice(personas["tutor"], storage.get_profile())
         return {"wav": base64.b64encode(engines.tts.synthesize(speakable(body.text)[:600], voice)).decode("ascii")}
+
+    @app.get("/api/scenarios")
+    def list_scenarios():
+        profile = storage.get_profile()
+        return [_persona_json(personas[f"custom_{sc['id']}"], profile) | {"kind": sc["kind"]}
+                for sc in storage.list_scenarios()]
+
+    @app.post("/api/scenarios")
+    def create_scenario(body: ScenarioIn):
+        if body.kind not in scenarios.KINDS:
+            raise HTTPException(422, "Unknown scenario kind.")
+        if len(body.text.strip()) < 10:
+            raise HTTPException(422, "Describe the situation in a sentence or two.")
+        data = _llm_call(scenarios.design, engines.llm, body.text, body.kind)
+        sid = storage.add_scenario(data)
+        persona = scenarios.to_persona(sid, data)
+        personas[persona.id] = persona
+        return _persona_json(persona, storage.get_profile()) | {"kind": body.kind}
+
+    @app.delete("/api/scenarios/{scenario_id}")
+    def delete_scenario(scenario_id: int):
+        storage.hide_scenario(scenario_id)
+        return {"ok": True}
 
     @app.get("/api/memory")
     def get_memory():

@@ -10,6 +10,7 @@ Tables
                 record + its summary as JSON, a title for the sidebar
   review_cards  flashcards for flagged words, with their spaced-repetition schedule
   memory        short facts the tutor remembers about the learner ("works in Pune")
+  scenarios     roleplay characters the learner created from a description
 
 Each finished session is ALSO exported to sessions/*.json (the same file the
 CLI used to write), so a session can be opened or shared without the database.
@@ -42,6 +43,12 @@ CREATE TABLE IF NOT EXISTS sessions (
     level    TEXT NOT NULL,
     record   TEXT NOT NULL,      -- full session record (turns, findings, transcript, latency)
     summary  TEXT NOT NULL       -- report.summarize() output + exercises
+);
+CREATE TABLE IF NOT EXISTS scenarios (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    data     TEXT NOT NULL,                 -- name, role, personality, opening, gender, kind, description
+    hidden   INTEGER NOT NULL DEFAULT 0,    -- "deleted": kept so old reports still show the name
+    created  REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS memory (
     id       INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -153,6 +160,21 @@ class Storage:
             return None
         return {"id": r["id"], "record": json.loads(r["record"]), "summary": json.loads(r["summary"]),
                 "mode": r["mode"], "title": r["title"]}
+
+    # ---- custom scenarios ------------------------------------------------
+    def add_scenario(self, data: dict) -> int:
+        with closing(self._connect()) as db, db:
+            return db.execute("INSERT INTO scenarios (data, created) VALUES (?, ?)",
+                              (json.dumps(data), time.time())).lastrowid
+
+    def list_scenarios(self, include_hidden: bool = False) -> list[dict]:
+        sql = "SELECT id, data, hidden FROM scenarios" + ("" if include_hidden else " WHERE hidden = 0") + " ORDER BY id"
+        with closing(self._connect()) as db:
+            return [{"id": r["id"], "hidden": bool(r["hidden"]), **json.loads(r["data"])} for r in db.execute(sql)]
+
+    def hide_scenario(self, scenario_id: int) -> None:
+        with closing(self._connect()) as db, db:
+            db.execute("UPDATE scenarios SET hidden = 1 WHERE id = ?", (scenario_id,))
 
     # ---- memory (what the tutor knows about the learner) ----------------
     def add_memories(self, facts: list[str], keep: int = 20) -> None:
