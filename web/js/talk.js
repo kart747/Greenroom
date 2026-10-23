@@ -56,12 +56,12 @@ export async function startTalk(view, opts) {
   const sid = start.id;
   const persona = start.persona;
   const tutor = start.mode === "tutor";
-  const short = persona.name.replace(/^(Mr|Ms|Mrs|Dr|Officer)\.?\s+/, "");
+  const initial = persona.name.replace(/^(Mr|Ms|Mrs|Dr|Officer)\.?\s+/, "")[0];   // "Mr. Rao" -> "R"
 
   view.innerHTML = `
     <section class="talk ${tutor ? "is-tutor" : "is-roleplay"}">
       <div class="talk-head">
-        <div class="avatar" aria-hidden="true">${esc(short[0])}</div>
+        <div class="avatar" aria-hidden="true">${esc(initial)}</div>
         <div class="grow"><h2>${esc(persona.name)} <span class="muted small">${esc(tutor ? "English tutor" : persona.role)}</span></h2>
           <div class="state" id="state" data-state="idle"><i class="dot"></i><span>Your turn</span></div></div>
         <label class="fb-switch" title="Feedback during chats (you can also change it in Settings)">
@@ -106,7 +106,7 @@ export async function startTalk(view, opts) {
   const mine = [];             // the learner's message bubbles, in order (feedback attaches here)
 
   // ---- UI state ----
-  const LABEL = { idle: "Your turn", listening: "Listening...", thinking: "Thinking...", speaking: `${short} is speaking` };
+  const LABEL = { idle: "Your turn", listening: "Listening...", thinking: "Thinking...", speaking: `${persona.name} is speaking` };
   function setState(s) {
     stateEl.dataset.state = s;
     stateEl.querySelector("span").textContent = LABEL[s];
@@ -485,7 +485,7 @@ export async function startTalk(view, opts) {
     });
     vad.start();
     micBtn.disabled = true;
-    hint.textContent = `Hands-free: just speak. A ${(silenceMs / 1000).toFixed(1)} s pause ends your turn; talk over ${short} to interrupt.`;
+    hint.textContent = `Hands-free: just speak. A ${(silenceMs / 1000).toFixed(1)} s pause ends your turn; talk over ${persona.name} to interrupt.`;
     if (busy) vad.resume(); else setState("idle");
   }
 
