@@ -6,8 +6,10 @@ over many sessions, which is awkward with a folder of JSON files.
 
 Tables
   profile       one row: the onboarding answers (name, goal, level, accent, ...)
-  sessions      one row per finished session: the full record + its summary, as JSON
+  sessions      one row per conversation (roleplay or tutor chat): the full
+                record + its summary as JSON, a title for the sidebar
   review_cards  flashcards for flagged words, with their spaced-repetition schedule
+  memory        short facts the tutor remembers about the learner ("works in Pune")
 
 Each finished session is ALSO exported to sessions/*.json (the same file the
 CLI used to write), so a session can be opened or shared without the database.
@@ -41,6 +43,11 @@ CREATE TABLE IF NOT EXISTS sessions (
     record   TEXT NOT NULL,      -- full session record (turns, findings, transcript, latency)
     summary  TEXT NOT NULL       -- report.summarize() output + exercises
 );
+CREATE TABLE IF NOT EXISTS memory (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    text     TEXT NOT NULL UNIQUE,
+    created  REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS review_cards (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     front     TEXT NOT NULL UNIQUE,  -- the flagged span, lowercase ("very good")
@@ -59,8 +66,20 @@ class Storage:
         self.path = path
         self.export_dir = export_dir
         path.parent.mkdir(parents=True, exist_ok=True)
-        with closing(self._connect()) as db:
+        with closing(self._connect()) as db, db:
             db.executescript(SCHEMA)
+            self._migrate(db)
+
+    @staticmethod
+    def _migrate(db: sqlite3.Connection) -> None:
+        """Add columns that newer versions need to a database made by an older
+        one, so a learner's history survives app updates."""
+        have = {row["name"] for row in db.execute("PRAGMA table_info(sessions)")}
+        for column, ddl in (("mode", "TEXT NOT NULL DEFAULT 'roleplay'"),
+                            ("title", "TEXT NOT NULL DEFAULT ''"),
+                            ("updated", "REAL")):
+            if column not in have:
+                db.execute(f"ALTER TABLE sessions ADD COLUMN {column} {ddl}")
 
     def _connect(self) -> sqlite3.Connection:
         db = sqlite3.connect(self.path)
@@ -79,17 +98,36 @@ class Storage:
                        "ON CONFLICT(id) DO UPDATE SET data = excluded.data", (json.dumps(profile),))
 
     # ---- sessions ------------------------------------------------------
-    def save_session(self, record: dict, summary: dict) -> int:
+    def save_session(self, record: dict, summary: dict, title: str = "") -> int:
         with closing(self._connect()) as db, db:
             cur = db.execute(
-                "INSERT INTO sessions (started, persona, level, record, summary) VALUES (?, ?, ?, ?, ?)",
-                (record["started"], record["persona"], record["level"],
-                 json.dumps(record), json.dumps(summary)))
+                "INSERT INTO sessions (started, persona, level, record, summary, mode, title, updated) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (record["started"], record["persona"], record["level"], json.dumps(record),
+                 json.dumps(summary), record.get("mode", "roleplay"), title, time.time()))
             session_id = cur.lastrowid
         if self.export_dir is not None:
             from .session import Session
             Session.save(record, self.export_dir)
         return session_id
+
+    def update_session(self, session_id: int, record: dict, summary: dict) -> None:
+        """A resumed tutor chat was closed again: replace its record and summary."""
+        with closing(self._connect()) as db, db:
+            db.execute("UPDATE sessions SET record = ?, summary = ?, level = ?, updated = ? WHERE id = ?",
+                       (json.dumps(record), json.dumps(summary), record["level"], time.time(), session_id))
+        if self.export_dir is not None:
+            from .session import Session
+            Session.save(record, self.export_dir)
+
+    def list_conversations(self, limit: int = 50) -> list[dict]:
+        """For the sidebar: newest activity first, without the heavy records."""
+        with closing(self._connect()) as db:
+            rows = db.execute(
+                "SELECT id, started, persona, mode, title, COALESCE(updated, started) AS updated, "
+                "json_extract(summary, '$.turns') AS turns FROM sessions "
+                "ORDER BY COALESCE(updated, started) DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(r) for r in rows]
 
     def list_sessions(self, limit: int | None = None) -> list[dict]:
         """Oldest first (the order progress charts want), with summaries but not full records."""
@@ -102,6 +140,7 @@ class Storage:
         for r in rows:
             record = json.loads(r["record"])
             out.append({"id": r["id"], "started": r["started"], "persona": r["persona"],
+                        "mode": record.get("mode", "roleplay"),
                         "level": r["level"], "summary": json.loads(r["summary"]),
                         "duration_s": record.get("duration_s"),
                         "latency": record.get("latency", {}).get("average", {})})
@@ -112,7 +151,32 @@ class Storage:
             r = db.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
         if not r:
             return None
-        return {"id": r["id"], "record": json.loads(r["record"]), "summary": json.loads(r["summary"])}
+        return {"id": r["id"], "record": json.loads(r["record"]), "summary": json.loads(r["summary"]),
+                "mode": r["mode"], "title": r["title"]}
+
+    # ---- memory (what the tutor knows about the learner) ----------------
+    def add_memories(self, facts: list[str], keep: int = 20) -> None:
+        """Store new facts (duplicates ignored) and keep only the newest `keep`,
+        so the tutor's prompt stays short."""
+        now = time.time()
+        with closing(self._connect()) as db, db:
+            for i, fact in enumerate(facts):
+                # i/1000: same-batch facts keep their order when sorted by time
+                db.execute("INSERT OR IGNORE INTO memory (text, created) VALUES (?, ?)", (fact.strip(), now + i / 1000))
+            db.execute("DELETE FROM memory WHERE id NOT IN "
+                       "(SELECT id FROM memory ORDER BY created DESC LIMIT ?)", (keep,))
+
+    def list_memories(self) -> list[dict]:
+        with closing(self._connect()) as db:
+            return [dict(r) for r in db.execute("SELECT id, text, created FROM memory ORDER BY created")]
+
+    def delete_memory(self, memory_id: int | None = None) -> None:
+        """Forget one fact, or everything when memory_id is None."""
+        with closing(self._connect()) as db, db:
+            if memory_id is None:
+                db.execute("DELETE FROM memory")
+            else:
+                db.execute("DELETE FROM memory WHERE id = ?", (memory_id,))
 
     # ---- review cards --------------------------------------------------
     def add_card(self, front: str, data: dict, now: float | None = None) -> bool:
