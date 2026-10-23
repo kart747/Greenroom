@@ -14,21 +14,23 @@ def summarize(record: dict) -> dict:
     suggestions: dict[str, list[str]] = {}
     messages: dict[str, str] = {}
     metric_sums = defaultdict(lambda: defaultdict(float))
-    metric_counts = defaultdict(int)
+    # Counted per metric, not per analyzer: a typed turn has no speaking speed,
+    # and must not drag the spoken turns' average towards zero.
+    metric_counts = defaultdict(lambda: defaultdict(int))
 
     for turn in record["turns"]:
         for res in turn["results"]:
             name = res["analyzer"]
-            metric_counts[name] += 1
             for k, v in res["metrics"].items():
                 metric_sums[name][k] += v
+                metric_counts[name][k] += 1
             for f in res["findings"]:
                 key = f["text"].lower()
                 repeated[name][key] += 1
                 suggestions.setdefault(key, f["suggestions"])
                 messages.setdefault(key, f["message"])
 
-    averages = {name: {k: round(v / metric_counts[name], 2) for k, v in sums.items()}
+    averages = {name: {k: round(v / metric_counts[name][k], 2) for k, v in sums.items()}
                 for name, sums in metric_sums.items()}
     top = {name: [{"text": text, "count": n, "message": messages[text],
                    "suggestions": suggestions[text]}
