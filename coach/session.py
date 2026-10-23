@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterator
 
-from .analyzers import Analyzer, AnalyzerResult, default_analyzers
+from .analyzers import Analyzer, AnalyzerResult, Finding, default_analyzers
 from .llm import ChatModel
 from .nlp import preprocess
 from .personas import Persona
@@ -40,14 +40,19 @@ class Turn:
 
 class Session:
     def __init__(self, persona: Persona, llm: ChatModel, level: str = "B1",
-                 analyzers: list[Analyzer] | None = None):
+                 analyzers: list[Analyzer] | None = None,
+                 system_prompt: str | None = None, opening: str | None = None):
+        """system_prompt / opening override the persona's defaults; the tutor
+        passes a prompt that includes what it remembers about the learner."""
         self.persona = persona
         self.level = level
         self.llm = llm
         self.analyzers = analyzers if analyzers is not None else default_analyzers()
-        self.messages = [{"role": "system", "content": persona.system_prompt(level)},
-                         {"role": "assistant", "content": persona.opening}]
+        self._opening = opening if opening is not None else persona.opening
+        self.messages = [{"role": "system", "content": system_prompt or persona.system_prompt(level)},
+                         {"role": "assistant", "content": self._opening}]
         self.turns: list[Turn] = []
+        self.prior_duration_s = 0.0         # time spent in earlier visits (resumed chats)
         self.latencies: list[dict] = []
         self._pending: list[tuple[Turn, Future]] = []
         self._pool = ThreadPoolExecutor(max_workers=1)  # spaCy isn't thread-safe; 1 worker keeps order
@@ -56,10 +61,48 @@ class Session:
         self._quiet = threading.Event()     # set = no reply being produced: analysis may run
         self._quiet.set()
         self.started = time.time()
+        self._visit_started = time.time()   # this visit; duration adds up across resumes
 
     @property
     def opening(self) -> str:
-        return self.persona.opening
+        return self._opening
+
+    @property
+    def mode(self) -> str:
+        return self.persona.mode
+
+    @classmethod
+    def resume(cls, record: dict, persona: Persona, llm: ChatModel,
+               analyzers: list[Analyzer] | None = None, system_prompt: str | None = None) -> Session:
+        """Continue a saved conversation (Tutor chats, like ChatGPT's history).
+        The system prompt is rebuilt fresh, so the tutor uses what it knows
+        about the learner NOW; the chat history and earlier feedback come back."""
+        s = cls(persona, llm, level=record["level"], analyzers=analyzers, system_prompt=system_prompt)
+        s.messages = [s.messages[0], *record["transcript"]]
+        s._opening = record["transcript"][0]["content"] if record["transcript"] else s._opening
+        s.turns = [Turn(t["text"], [_result_from_dict(r) for r in t["results"]]) for t in record["turns"]]
+        s.latencies = list(record.get("latency", {}).get("turns", []))
+        s.started = record["started"]
+        s.prior_duration_s = record.get("duration_s", 0.0)
+        return s
+
+    def ready_feedback(self, since: int = 0) -> list[dict]:
+        """Findings for turns whose analysis has FINISHED, from turn `since` on.
+        Never waits: the Tutor screen polls this to put feedback on the
+        learner's messages as soon as it exists."""
+        done = {id(t): f for t, f in self._pending if f.done()}
+        out = []
+        for i, turn in enumerate(self.turns[since:], start=since):
+            if id(turn) in done:
+                results = done[id(turn)].result()
+            elif turn.results or not any(t is turn for t, _ in self._pending):
+                results = turn.results          # restored from a saved chat
+            else:
+                continue                        # still being analyzed
+            findings = sorted((f.to_dict() for r in results for f in r.findings),
+                              key=lambda f: (f["start"], -f["end"]))
+            out.append({"index": i, "text": turn.text, "findings": findings})
+        return out
 
     @contextmanager
     def replying(self):
@@ -115,9 +158,10 @@ class Session:
         self._pool.shutdown(wait=True)
         return {
             "persona": self.persona.id,
+            "mode": self.mode,
             "level": self.level,
             "started": self.started,
-            "duration_s": round(time.time() - self.started, 1),
+            "duration_s": round(self.prior_duration_s + time.time() - self._visit_started, 1),
             "turns": [{"text": t.text, "results": [r.to_dict() for r in t.results]}
                       for t in self.turns],
             "transcript": self.messages[1:],
@@ -130,6 +174,11 @@ class Session:
         path = directory / f"session_{int(record['started'])}_{record['persona']}.json"
         path.write_text(json.dumps(record, indent=2))
         return path
+
+
+def _result_from_dict(d: dict) -> AnalyzerResult:
+    """Inverse of AnalyzerResult.to_dict(), for resumed chats."""
+    return AnalyzerResult(d["analyzer"], [Finding(**f) for f in d["findings"]], d["metrics"])
 
 
 def average_latency(turns: list[dict]) -> dict[str, float]:
