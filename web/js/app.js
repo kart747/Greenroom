@@ -11,6 +11,7 @@
 
 import { getJSON, sendJSON, api } from "./api.js";
 import { lineChart } from "./charts.js";
+import { showFindings } from "./feedback.js";
 import { startTalk } from "./talk.js";
 
 const view = document.getElementById("view");
@@ -48,7 +49,6 @@ const ACCENT_INFO = {
 };
 const DESTINATIONS = [["uk", "United Kingdom"], ["ireland", "Ireland"], ["australia", "Australia"],
   ["new zealand", "New Zealand"], ["usa", "United States"], ["canada", "Canada"], ["other", "Somewhere else"]];
-export const ANALYZER_LABEL = { vocabulary: "Word choice", fluency: "Fluency", grammar: "Grammar" };
 
 function fmtDate(ts) {
   return new Date(ts * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short" });
@@ -240,75 +240,6 @@ async function renderCharacters() {
 }
 
 // ---------- 5. report ----------
-// Split a sentence at every finding boundary so overlapping findings (e.g. a
-// vocabulary span inside a grammar span) still each get highlighted.
-function highlight(text, findings) {
-  const cuts = new Set([0, text.length]);
-  findings.forEach((f) => { cuts.add(f.start); cuts.add(f.end); });
-  const pts = [...cuts].sort((a, b) => a - b);
-  let html = "";
-  for (let i = 0; i < pts.length - 1; i++) {
-    const [a, b] = [pts[i], pts[i + 1]];
-    const idx = findings.map((f, j) => (f.start <= a && f.end >= b ? j : -1)).filter((j) => j >= 0);
-    const piece = esc(text.slice(a, b));
-    html += idx.length
-      ? `<mark class="${findings[idx[0]].analyzer}" tabindex="0" data-f="${idx.join(",")}">${piece}</mark>`
-      : piece;
-  }
-  return html;
-}
-
-function popoverHTML(findings) {
-  return findings.map((f) => `
-    <div><b>${esc(ANALYZER_LABEL[f.analyzer] || f.analyzer)}:</b> ${esc(f.message)}
-      ${f.suggestions?.length ? `<div class="try">Try: ${f.suggestions.map((s) => `<b>${esc(s)}</b>`).join(", ")}</div>` : ""}
-    </div>`).join("<hr style='border:none;border-top:1px solid var(--line)'>");
-}
-
-// One popover at a time, shared by all reports; any click elsewhere closes it.
-let pop = null;
-function closePopover() {
-  pop?.remove();
-  pop = null;
-  document.querySelectorAll("mark.open").forEach((m) => m.classList.remove("open"));
-}
-document.addEventListener("click", closePopover);
-window.addEventListener("hashchange", closePopover);
-
-function openPopover(mark, turns) {
-  closePopover();
-  const turn = turns[Number(mark.closest("[data-turn]").dataset.turn)];
-  const fs = mark.dataset.f.split(",").map((j) => turn.findings[Number(j)]);
-  pop = document.createElement("div");
-  pop.className = "popover";
-  pop.innerHTML = popoverHTML(fs);
-  document.body.appendChild(pop);
-  const r = mark.getBoundingClientRect();
-  const maxLeft = document.documentElement.clientWidth - pop.offsetWidth - 8;
-  pop.style.left = `${window.scrollX + Math.max(8, Math.min(r.left, maxLeft))}px`;
-  pop.style.top = `${window.scrollY + r.bottom + 6}px`;
-  mark.classList.add("open");
-}
-
-// Hover (mouse), tap (touch) and keyboard focus all open the explanation.
-function wirePopovers(root, turns) {
-  root.addEventListener("mouseover", (e) => {
-    const m = e.target.closest("mark");
-    if (m && !m.classList.contains("open")) openPopover(m, turns);
-  });
-  root.addEventListener("click", (e) => {
-    const m = e.target.closest("mark");
-    if (!m) return;
-    e.stopPropagation();   // keep the document handler from closing it right away
-    if (m.classList.contains("open") && e.pointerType !== "mouse") closePopover();
-    else openPopover(m, turns);
-  });
-  root.addEventListener("focusin", (e) => {
-    const m = e.target.closest("mark");
-    if (m) openPopover(m, turns);
-  });
-}
-
 async function renderReport(id) {
   let r = state.reportCache.get(String(id));
   if (!r) r = await getJSON(`/api/reports/${id}`);
@@ -327,7 +258,7 @@ async function renderReport(id) {
           <div class="legend"><span><i style="background:var(--vocab)"></i>Word choice</span>
             <span><i style="background:var(--fluency)"></i>Fluency</span><span><i style="background:var(--grammar)"></i>Grammar</span></div></div>
         <p class="muted small">${total ? "Tap or hover a highlighted part to see why and what to try instead." : "Nothing flagged. Clear, varied English. Well done!"}</p>
-        <ol class="turns">${r.turns.map((t, i) => `<li class="sentence" data-turn="${i}">${highlight(t.text, t.findings)}</li>`).join("")}</ol>
+        <ol class="turns">${r.turns.map(() => `<li class="sentence"></li>`).join("")}</ol>
       </section>
       ${r.exercises.length ? `
       <section class="stack"><h2>Practise next</h2>
@@ -345,7 +276,7 @@ async function renderReport(id) {
         </div>
       </section>
     </div>`;
-  wirePopovers(view.querySelector("ol.turns"), r.turns);   // fresh element each render, so listeners never pile up
+  view.querySelectorAll("ol.turns > li").forEach((li, i) => showFindings(li, r.turns[i].text, r.turns[i].findings));
 }
 
 // ---------- 6. progress ----------

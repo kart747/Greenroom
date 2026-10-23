@@ -223,6 +223,7 @@ mark:hover, mark.open { border-bottom-color: currentColor; }
 .popover .try { margin-top: 0.4rem; }
 .popover .try b { color: var(--primary); }
 .popover + .popover { display: none; }
+.popover hr { border: none; border-top: 1px solid var(--line); }
 .exercise { border-left: 4px solid var(--primary); }
 ol.turns { padding-left: 1.2rem; margin: 0; }
 ol.turns li + li { margin-top: 0.6rem; }
