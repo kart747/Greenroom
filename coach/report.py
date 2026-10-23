@@ -55,6 +55,7 @@ def report_payload(record: dict, summary: dict) -> dict:
     old session's report can be reopened from the database."""
     return {
         "persona": record["persona"],
+        "mode": record.get("mode", "roleplay"),
         "level": record["level"],
         "started": record["started"],
         "duration_s": record.get("duration_s"),
