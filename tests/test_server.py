@@ -67,7 +67,7 @@ def test_resolve_voice_rules():
     assert resolve_voice(maya, {"accent": "auto", "goal": "study_abroad", "destination": "canada"}) == "american_female"
     assert resolve_voice(rao, {"accent": "auto", "goal": "job"}) == "british_male"  # persona default
     assert resolve_voice(rao, None) == "british_male"
-    assert {q.id for q in personas_for_goal(p, None)} == set(p)
+    assert {q.id for q in personas_for_goal(p, None)} == set(p) - {"tutor"}   # the tutor isn't a roleplay
 
 
 def test_full_conversation_voice_and_text(make_client):
