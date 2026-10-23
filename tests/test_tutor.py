@@ -85,6 +85,16 @@ def test_remember_extracts_new_facts_only(tmp_path):
     assert memory.remember(llm, storage, {"turns": []}) == []        # nothing said, no LLM call
 
 
+def test_remember_drops_facts_the_learner_never_said(tmp_path):
+    storage = Storage(tmp_path / "g.db", export_dir=None)
+    llm = FakeLLM(facts=["Studies computer science in Chennai",            # invented (copied from a prompt)
+                         "Final year CSE student from Coimbatore"])        # really said
+    rec = {"turns": [{"text": "I am a final year CSE student from Coimbatore."}]}
+    assert memory.remember(llm, storage, rec) == ["Final year CSE student from Coimbatore"]
+    assert memory.grounded("Is studying for the IELTS exam", "I'm studying hard for my IELTS exam")
+    assert not memory.grounded("Has a TCS interview", "I like cricket")
+
+
 def test_memory_keeps_newest_20(tmp_path):
     storage = Storage(tmp_path / "g.db", export_dir=None)
     storage.add_memories([f"fact {i}" for i in range(25)])
@@ -181,7 +191,8 @@ def test_in_chat_feedback_follows_the_learners_choice(env):
 def test_memory_endpoints_and_learning_after_chat(env):
     c, llm, storage, _ = env
     sid = c.post("/api/sessions", json={"mode": "tutor"}).json()["id"]
-    events(c.post(f"/api/sessions/{sid}/turn", data={"text": "I have an interview at TCS next week."}))
+    events(c.post(f"/api/sessions/{sid}/turn",
+                  data={"text": "I'm a final-year computer science student. I have an interview at TCS next week."}))
     c.post(f"/api/sessions/{sid}/end")
     import time
     for _ in range(100):                      # remember() runs in a background thread

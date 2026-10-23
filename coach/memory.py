@@ -17,6 +17,7 @@ it go?" or bring up a word the learner keeps overusing.
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 
 from .llm import ChatModel
@@ -32,8 +33,11 @@ EXTRACT_PROMPT = """You help an English tutor remember a student between lessons
 Below are things the STUDENT said in today's conversation.
 List at most 5 short facts the student shared about themselves that a tutor should remember:
 studies, job, goals, exams and their dates, interests, upcoming events, where they live.
-Rules: only facts the student clearly stated; one fact per item, under 15 words, in third person
-("Studies computer science in Chennai"); skip anything about English mistakes; skip facts already known.
+Rules:
+- Only facts the student clearly stated about THEMSELVES. A sentence they asked about or wanted
+  corrected is not a fact about them.
+- One fact per item, under 15 words, written in the third person, using the student's own words.
+- Skip anything about English mistakes, and facts already known.
 Return {"facts": []} if there is nothing new.
 
 Already known:
@@ -83,6 +87,24 @@ def learner_context(profile: dict | None, storage: Storage) -> str:
     return "\n".join(lines)
 
 
+_STOP = {"student", "they", "their", "them", "with", "from", "that", "this", "about", "will", "would",
+         "have", "has", "had", "been", "into", "also", "very", "currently", "wants", "likes"}
+
+
+def grounded(fact: str, source: str) -> bool:
+    """Keep a fact only if most of its content words appear in what the
+    learner actually said. Small LLMs sometimes invent or copy facts (one
+    copied an example out of the prompt); this checks the answer against the
+    source text instead of trusting it. Words are compared by their first 5
+    letters, so "studies" matches "studying"."""
+    stem = lambda w: w[:5]                                       # noqa: E731
+    said = {stem(w) for w in re.findall(r"[a-z0-9]+", source.lower())}
+    words = [w for w in re.findall(r"[a-z0-9]+", fact.lower()) if len(w) > 3 and w not in _STOP]
+    if not words:
+        return False
+    return sum(stem(w) in said for w in words) / len(words) >= 0.5
+
+
 def remember(llm: ChatModel, storage: Storage, record: dict) -> list[str]:
     """After a tutor chat: extract new facts from the learner's messages and
     store them. Runs in a background thread when the chat closes, so the
@@ -99,8 +121,9 @@ def remember(llm: ChatModel, storage: Storage, record: dict) -> list[str]:
     except (RuntimeError, KeyError, TypeError):
         return []                      # memory is a nice-to-have; never break closing a chat
     known_lower = {k.lower() for k in known}
+    source = " ".join(said)
     new = [f.strip() for f in facts if isinstance(f, str) and f.strip()
-           and f.strip().lower() not in known_lower][:5]
+           and f.strip().lower() not in known_lower and grounded(f, source)][:5]
     if new:
         storage.add_memories(new)
     return new
