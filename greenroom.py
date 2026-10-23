@@ -52,14 +52,15 @@ def free_port(preferred: int) -> int:
     raise RuntimeError("No free port")
 
 
-def start_server(port: int, cfg: dict) -> uvicorn.Server:
+def start_server(port: int, cfg: dict) -> tuple[uvicorn.Server, threading.Thread]:
     app = create_app(cfg, Engines(cfg), Storage())
     # 127.0.0.1 only: the app is private to this computer.
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
-    threading.Thread(target=server.run, daemon=True).start()
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
     while not server.started:        # wait until it accepts connections
         time.sleep(0.05)
-    return server
+    return server, thread
 
 
 def open_window(url: str) -> bool:
@@ -89,7 +90,7 @@ def main() -> None:
 
     cfg = load_config(Path(args.config))
     port = free_port(args.port)
-    server = start_server(port, cfg)
+    server, thread = start_server(port, cfg)
     url = f"http://127.0.0.1:{port}/"
     print(f"Greenroom is running at {url}", flush=True)
 
@@ -101,7 +102,10 @@ def main() -> None:
                 time.sleep(1)
         except KeyboardInterrupt:
             pass
+    # Stop the server and give it time to save any open conversation
+    # (the server's shutdown step does that), instead of killing it mid-write.
     server.should_exit = True
+    thread.join(timeout=15)
 
 
 if __name__ == "__main__":
