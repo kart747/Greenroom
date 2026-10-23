@@ -8,22 +8,35 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Greenroom UI. Everything is served by the local FastAPI server; no CDN,
-       no build step. Each screen is rendered by js/app.js into #view. -->
-  <header class="topbar" id="topbar" hidden>
-    <a class="brand" href="#/home" aria-label="Greenroom home">
-      <img src="icon.svg" alt="" width="28" height="28"><span>Greenroom</span>
-    </a>
-    <nav class="nav" aria-label="Main">
-      <a href="#/home" data-nav="home">Home</a>
-      <a href="#/characters" data-nav="characters">Practice</a>
-      <a href="#/progress" data-nav="progress">Progress</a>
-      <a href="#/review" data-nav="review">Review</a>
-      <a href="#/settings" data-nav="settings">Settings</a>
-    </nav>
-    <div class="status" id="status" title="Model status"></div>
-  </header>
-  <main id="view" tabindex="-1"></main>
+  <!-- Greenroom UI, laid out like a chat app: a sidebar with "new chat" and
+       recent conversations, and the main area where js/app.js renders each
+       screen into #view. Served by the local FastAPI server; no CDN, no build. -->
+  <div class="app">
+    <aside class="sidebar" id="sidebar" hidden aria-label="Conversations and navigation">
+      <div class="side-top">
+        <a class="brand" href="#/home"><img src="icon.svg" alt="" width="26" height="26"><span>Greenroom</span></a>
+        <button class="icon-btn only-narrow" id="close-side" aria-label="Close menu">✕</button>
+      </div>
+      <a class="btn primary side-new" href="#/tutor/new" data-nav="tutor">＋ New chat with Sam</a>
+      <a class="side-link" href="#/characters" data-nav="characters">Roleplay a situation</a>
+      <div class="side-label">Recent</div>
+      <nav class="recent" id="recent" aria-label="Recent conversations"></nav>
+      <div class="side-bottom">
+        <a class="side-link" href="#/progress" data-nav="progress">Progress</a>
+        <a class="side-link" href="#/review" data-nav="review">Review <span class="count" id="due-count" hidden></span></a>
+        <a class="side-link" href="#/settings" data-nav="settings">Settings</a>
+        <div class="status" id="status" title="Model status"></div>
+      </div>
+    </aside>
+    <div class="scrim" id="scrim" hidden></div>
+    <div class="main">
+      <header class="mobilebar only-narrow" id="mobilebar" hidden>
+        <button class="icon-btn" id="open-side" aria-label="Open menu">☰</button>
+        <a class="brand" href="#/home"><img src="icon.svg" alt="" width="22" height="22"><span>Greenroom</span></a>
+      </header>
+      <main id="view" tabindex="-1"></main>
+    </div>
+  </div>
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
   <script type="module" src="js/app.js"></script>
 </body>

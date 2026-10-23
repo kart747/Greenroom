@@ -1,8 +1,11 @@
-// Greenroom UI: a small hash router and one render function per screen.
-//   #/welcome        onboarding (first run)
-//   #/home           greeting, start practice, due reviews, last session
-//   #/characters     choose who to talk to
-//   #/talk/<id>      the conversation (js/talk.js)
+// Greenroom UI: a small hash router and one render function per screen,
+// inside a chat-app layout (sidebar with recent conversations + main area).
+//   #/welcome        onboarding (first run, no sidebar)
+//   #/home           start page: ask Sam anything, suggestions, roleplays
+//   #/tutor/new      a new chat with Sam, the tutor (js/talk.js)
+//   #/tutor/<id>     continue a saved tutor chat
+//   #/characters     choose a roleplay character
+//   #/talk/<id>      a roleplay conversation (js/talk.js)
 //   #/report/<id>    feedback for one session
 //   #/progress       trends over sessions
 //   #/review         flashcards
@@ -15,8 +18,9 @@ import { showFindings } from "./feedback.js";
 import { startTalk } from "./talk.js";
 
 const view = document.getElementById("view");
-const topbar = document.getElementById("topbar");
-export const state = { profile: null, status: null, reportCache: new Map(), leave: null };
+const sidebar = document.getElementById("sidebar");
+// pendingMessage: typed on the start page; the new tutor chat sends it first.
+export const state = { profile: null, status: null, reportCache: new Map(), leave: null, pendingMessage: null };
 
 // ---------- small helpers ----------
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
@@ -47,6 +51,18 @@ const ACCENT_INFO = {
   american: ["American", "All characters speak American English"],
   british: ["British", "All characters speak British English"],
 };
+// In-chat feedback, chosen by the learner (server: FEEDBACK_POLICIES).
+export const FEEDBACK_INFO = {
+  after: ["After the session", "Focus on talking; see everything in the report"],
+  tutor_only: ["Only with Sam", "Markers in tutor chats; roleplays stay clean"],
+  gentle: ["Gently, in every chat", "Your most important mistake per message"],
+  all: ["Every mistake", "All markers, in every chat"],
+};
+const CORRECTION_INFO = {
+  gentle: ["Gentle", "Only the most important mistake in each message"],
+  thorough: ["Thorough", "Every clear mistake (up to three per message)"],
+  off: ["Off", "Only when I ask"],
+};
 const DESTINATIONS = [["uk", "United Kingdom"], ["ireland", "Ireland"], ["australia", "Australia"],
   ["new zealand", "New Zealand"], ["usa", "United States"], ["canada", "Canada"], ["other", "Somewhere else"]];
 
@@ -60,7 +76,12 @@ const routes = {
   welcome: renderOnboarding,
   home: renderHome,
   characters: renderCharacters,
-  talk: (id) => startTalk(view, id),
+  tutor: (id) => {
+    const firstMessage = state.pendingMessage;
+    state.pendingMessage = null;
+    return startTalk(view, id === "new" ? { mode: "tutor", firstMessage } : { mode: "tutor", resumeId: Number(id) });
+  },
+  talk: (id) => startTalk(view, { mode: "roleplay", personaId: id }),
   report: renderReport,
   progress: renderProgress,
   review: renderReview,
@@ -73,9 +94,14 @@ async function route() {
   const [name, arg] = location.hash.replace(/^#\/?/, "").split("/");
   if (!state.profile && name !== "welcome") { location.hash = "#/welcome"; return; }
   const screen = routes[name] ? name : "home";
-  topbar.hidden = screen === "welcome";
+  document.body.classList.toggle("bare", screen === "welcome");
+  document.body.dataset.screen = screen;      // lets the chat screen use the full height
+  closeSidebar();
   document.querySelectorAll("[data-nav]").forEach((a) =>
-    a.classList.toggle("active", a.dataset.nav === screen || (screen === "talk" && a.dataset.nav === "characters")));
+    a.classList.toggle("active", a.dataset.nav === screen
+      || (screen === "talk" && a.dataset.nav === "characters")
+      || (screen === "tutor" && arg === "new" && a.dataset.nav === "tutor")));
+  markRecent();
   view.innerHTML = `<div class="empty"><span class="spinner"></span></div>`;
   try {
     await routes[screen](arg);
@@ -84,6 +110,43 @@ async function route() {
   }
   view.focus({ preventScroll: true });
 }
+
+// ---------- sidebar: recent conversations (like ChatGPT's history) ----------
+export async function refreshSidebar() {
+  let convs = [];
+  let due = 0;
+  try {
+    [convs, { due_cards: due }] = await Promise.all([getJSON("/api/conversations"), getJSON("/api/home")]);
+  } catch { /* server busy; keep the old list */ return; }
+  const recent = document.getElementById("recent");
+  recent.innerHTML = convs.length ? convs.map((c) => {
+    // Tutor chats reopen and continue; roleplays open their report.
+    const href = c.mode === "tutor" ? `#/tutor/${c.id}` : `#/report/${c.id}`;
+    const title = c.mode === "tutor" ? (c.title || "Chat with Sam") : c.persona_name;
+    const sub = `${c.mode === "tutor" ? "Tutor" : "Roleplay"} · ${fmtDate(c.updated)}`;
+    return `<a href="${href}" title="${esc(title)}">${esc(title)}<small>${sub}</small></a>`;
+  }).join("") : `<div class="note">Your conversations will appear here.</div>`;
+  const count = document.getElementById("due-count");
+  count.hidden = !due;
+  count.textContent = due;
+  markRecent();
+}
+
+function markRecent() {
+  document.querySelectorAll("#recent a").forEach((a) => a.classList.toggle("active", a.getAttribute("href") === location.hash));
+}
+
+function openSidebar() {
+  sidebar.classList.add("open");
+  document.getElementById("scrim").hidden = false;
+}
+function closeSidebar() {
+  sidebar.classList.remove("open");
+  document.getElementById("scrim").hidden = true;
+}
+document.getElementById("open-side").addEventListener("click", openSidebar);
+document.getElementById("close-side").addEventListener("click", closeSidebar);
+document.getElementById("scrim").addEventListener("click", closeSidebar);
 
 // ---------- model status pills ----------
 async function refreshStatus() {
@@ -141,7 +204,9 @@ function readProfile(form, extra = {}) {
   return {
     name: (f.get("name") || "").trim(), goal, level: f.get("level"), accent: f.get("accent"),
     destination: goal === "study_abroad" ? f.get("destination") : null,
-    silence_ms: Number(f.get("silence_ms") || state.profile?.silence_ms || 1200), ...extra,
+    silence_ms: Number(f.get("silence_ms") || state.profile?.silence_ms || 1200),
+    tutor_corrections: f.get("tutor_corrections") || state.profile?.tutor_corrections || "gentle",
+    chat_feedback: f.get("chat_feedback") || state.profile?.chat_feedback || "after", ...extra,
   };
 }
 
@@ -176,43 +241,89 @@ async function renderOnboarding() {
   });
 }
 
-// ---------- 2. home ----------
+// ---------- 2. home: the start page ----------
 function greeting() {
   const h = new Date().getHours();
   return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
+// Conversation starters for Sam, by the learner's goal.
+const STARTERS = {
+  placements: ["Help me answer “Tell me about yourself”", "What's wrong with “I am having 2 years experience”?",
+    "How do I describe my final-year project?", "Ask me common HR questions"],
+  job: ["How do I politely say no to a customer?", "Useful phrases for team meetings",
+    "How do I apologise professionally?", "Practise small talk with a new colleague"],
+  study_abroad: ["How do I explain why I chose this university?", "What might a visa officer ask me?",
+    "Help me talk about how I'll fund my studies", "Phrases for my first day on campus"],
+  general: ["Explain “since” vs “for”", "Let's chat about my weekend",
+    "How can I sound more fluent?", "Teach me 3 phrases for small talk"],
+};
+
 async function renderHome() {
-  const [home, status] = await Promise.all([getJSON("/api/home"), refreshStatus()]);
-  const last = home.last_session;
-  const avg = last?.summary?.averages || {};
+  const [home, personas, status] = await Promise.all([getJSON("/api/home"), getJSON("/api/personas"), refreshStatus()]);
+  const starters = STARTERS[state.profile.goal] || STARTERS.general;
+  const llmOff = status?.llm?.state === "off";
   view.innerHTML = `
-    <div class="stack">
+    <div class="landing stack">
       ${statusBanner(status)}
-      <section class="card hero">
+      <div class="landing-head">
+        <img src="icon.svg" alt="" width="52" height="52">
         <h1>${greeting()}, ${esc(state.profile.name)}</h1>
-        <p class="muted">${home.session_count ? "Ready for another round?" : "Your first conversation is one click away. Nobody is judging. It's a rehearsal."}</p>
-        <a class="btn primary big" href="#/characters">Start practice</a>
+        <p class="muted">Ask Sam, your English tutor, anything, or just start talking. Nobody is judging. It's a rehearsal.</p>
+      </div>
+      <form class="composer" id="start-chat">
+        <textarea id="start-text" rows="1" placeholder="Ask Sam anything about English, or say hi…" aria-label="Message Sam" ${llmOff ? "disabled" : ""}></textarea>
+        <button class="primary" type="submit" ${llmOff ? "disabled" : ""}>Send</button>
+      </form>
+      <div class="chips">${starters.map((t) => `<button class="chip" type="button">${esc(t)}</button>`).join("")}
+        <a class="chip" href="#/tutor/new">Just start a voice chat</a></div>
+      <section class="stack">
+        <h2>Or practise a real situation</h2>
+        <p class="muted small">Roleplay characters stay in character and never correct you; you get feedback at the end.</p>
+        <div class="grid">${personas.map((p) => personaCard(p, llmOff)).join("")}</div>
       </section>
       <div class="grid">
-        <a class="card" href="#/review" style="text-decoration:none;color:inherit">
-          <h2>Review</h2>
-          <p><b style="font-size:1.6rem">${home.due_cards}</b> <span class="muted">word${home.due_cards === 1 ? "" : "s"} due today</span></p>
-          <span class="small muted">${home.due_cards ? "A few minutes of flashcards keeps new words in memory." : "Words from your sessions appear here."}</span>
-        </a>
-        <div class="card">
-          <h2>Last session</h2>
-          ${last ? `
-            <p class="muted small">${fmtDate(last.started)} · ${esc(last.persona_name)} · ${last.summary.turns} turns</p>
-            <div class="stats">
-              <div class="stat"><b>${round(avg.vocabulary?.basic_word_count, 1)}</b><span>basic words / turn</span></div>
-              <div class="stat"><b>${round(avg.fluency?.fillers_per_100_words, 1)}</b><span>fillers / 100 words</span></div>
-            </div>
-            <p style="margin-top:.75rem"><a href="#/report/${last.id}">See the full report</a></p>`
-          : `<p class="muted">No sessions yet.</p>`}
-        </div>
+        <a class="card link-card" href="#/review"><h3>Review</h3>
+          <p><b class="big-num">${home.due_cards}</b> <span class="muted">word${home.due_cards === 1 ? "" : "s"} due</span></p></a>
+        ${home.last_session ? `<a class="card link-card" href="#/report/${home.last_session.id}"><h3>Last report</h3>
+          <p class="muted small">${fmtDate(home.last_session.started)} · ${esc(home.last_session.persona_name)} · ${home.last_session.summary.turns} turns</p></a>` : ""}
       </div>
     </div>`;
+  const start = (text) => {
+    if (!text.trim()) return;
+    state.pendingMessage = text.trim();
+    location.hash = "#/tutor/new";
+  };
+  const ta = view.querySelector("#start-text");
+  autoGrow(ta);
+  ta.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); start(ta.value); }
+  });
+  view.querySelector("#start-chat").addEventListener("submit", (e) => { e.preventDefault(); start(ta.value); });
+  view.querySelectorAll("button.chip").forEach((c) => c.addEventListener("click", () => start(c.textContent)));
+  wirePersonaCards();
+  ta.focus();
+}
+
+// A textarea that grows with its text, up to a limit (used by every composer).
+export function autoGrow(ta, max = 180) {
+  const fit = () => { ta.style.height = "auto"; ta.style.height = `${Math.min(ta.scrollHeight, max)}px`; };
+  ta.addEventListener("input", fit);
+  fit();
+}
+
+function personaCard(p, disabled) {
+  return `<button class="card persona" data-id="${esc(p.id)}" ${disabled ? "disabled" : ""}>
+    <div class="avatar" aria-hidden="true">${esc(p.name.replace(/^(Mr|Ms|Mrs|Dr|Officer)\.?\s+/, "")[0])}</div>
+    <h3>${esc(p.name)}</h3>
+    <span class="muted small">${esc(p.role)}</span>
+    <span><span class="badge">${p.accent === "british" ? "British" : "American"} accent</span></span>
+  </button>`;
+}
+
+function wirePersonaCards() {
+  view.querySelectorAll(".persona").forEach((b) =>
+    b.addEventListener("click", () => { location.hash = `#/talk/${b.dataset.id}`; }));
 }
 
 // ---------- 3. choose character ----------
@@ -221,22 +332,14 @@ async function renderCharacters() {
   const llmOff = status?.llm?.state === "off";
   view.innerHTML = `
     <div class="stack">
-      <div><h1>Who do you want to talk to?</h1>
+      <div><h1>Roleplay a situation</h1>
         <p class="muted">Characters for <b>${esc(GOAL_INFO[state.profile.goal]?.[0] || "you")}</b>, plus everyday practice.
-        They stay in character and never correct you mid-conversation. Feedback comes at the end.</p></div>
+        They stay in character and never correct you mid-conversation. Feedback comes at the end.
+        Want corrections as you go? <a href="#/tutor/new">Chat with Sam</a> instead.</p></div>
       ${llmOff ? `<div class="banner error">${esc(status.llm.message)}</div>` : statusBanner(status)}
-      <div class="grid">
-        ${personas.map((p) => `
-          <button class="card persona" data-id="${esc(p.id)}" ${llmOff ? "disabled" : ""}>
-            <div class="avatar" aria-hidden="true">${esc(p.name.replace(/^(Mr|Ms|Mrs|Dr|Officer)\.?\s+/, "")[0])}</div>
-            <h2>${esc(p.name)}</h2>
-            <span class="muted">${esc(p.role)}</span>
-            <span><span class="badge">${p.accent === "british" ? "British" : "American"} accent</span></span>
-          </button>`).join("")}
-      </div>
+      <div class="grid">${personas.map((p) => personaCard(p, llmOff)).join("")}</div>
     </div>`;
-  view.querySelectorAll(".persona").forEach((b) =>
-    b.addEventListener("click", () => { location.hash = `#/talk/${b.dataset.id}`; }));
+  wirePersonaCards();
 }
 
 // ---------- 5. report ----------
@@ -251,7 +354,9 @@ async function renderReport(id) {
       <div class="row spread">
         <div><h1>Your feedback</h1>
           <p class="muted">${fmtDate(r.started)} · ${esc(r.persona_name)} · ${r.summary.turns} turns · ${Math.round((r.duration_s || 0) / 60)} min</p></div>
-        <div class="row"><a class="btn" href="#/progress">Progress</a><a class="btn primary" href="#/characters">Practise again</a></div>
+        <div class="row"><a class="btn" href="#/progress">Progress</a>
+          ${r.mode === "tutor" ? `<a class="btn primary" href="#/tutor/${id}">Continue this chat</a>`
+                               : `<a class="btn primary" href="#/characters">Practise again</a>`}</div>
       </div>
       <section class="card">
         <div class="row spread"><h2>What you said</h2>
@@ -284,7 +389,7 @@ async function renderProgress() {
   const p = await getJSON("/api/progress");
   if (!p.sessions.length) {
     view.innerHTML = `<div class="card empty"><h2>No sessions yet</h2><p>Your trends appear after your first conversation.</p>
-      <a class="btn primary" href="#/characters">Start practice</a></div>`;
+      <a class="btn primary" href="#/home">Start practising</a></div>`;
     return;
   }
   const series = (key) => p.sessions.map((s) => ({ label: fmtDate(s.started), value: s[key] }));
@@ -379,8 +484,23 @@ async function renderSettings() {
           <input type="range" id="silence" name="silence_ms" min="600" max="3000" step="100" value="${p.silence_ms || 1200}" style="width:100%">
           <div class="hint"><span id="silence-val">${((p.silence_ms || 1200) / 1000).toFixed(1)}</span> seconds of silence.
           Longer if you often pause mid-sentence; shorter for faster replies.</div></div>
+        <div class="field"><label>Feedback during chats</label>
+          <div class="choices">${Object.entries(FEEDBACK_INFO).map(([v, [t, sub]]) => `
+            <label class="choice"><input type="radio" name="chat_feedback" value="${v}" ${(p.chat_feedback || "after") === v ? "checked" : ""}>
+              <span>${esc(t)}<small>${esc(sub)}</small></span></label>`).join("")}</div>
+          <div class="hint">Feedback shows as a small marker under <b>your</b> message. Characters always stay in character; you can also switch this inside a chat.</div></div>
+        <div class="field"><label>When you chat with Sam, Sam's own corrections should be…</label>
+          <div class="choices">${Object.entries(CORRECTION_INFO).map(([v, [t, sub]]) => `
+            <label class="choice"><input type="radio" name="tutor_corrections" value="${v}" ${(p.tutor_corrections || "gentle") === v ? "checked" : ""}>
+              <span>${esc(t)}<small>${esc(sub)}</small></span></label>`).join("")}</div>
+          <div class="hint">Roleplay characters never correct you; their feedback is in the report.</div></div>
         <div class="row" style="margin-top:1.25rem;justify-content:flex-end"><button class="primary" type="submit">Save</button></div>
       </form>
+      <section class="card" id="memory"><h2>What Sam remembers</h2>
+        <p class="muted small">After each chat, Sam notes a few facts you mentioned, so the next chat can pick up from there. They stay on this computer.</p>
+        <ul class="memory-list" id="memory-list"></ul>
+        <button class="ghost danger small" id="forget-all" type="button">Forget everything</button>
+      </section>
       <section class="card"><h2>Models</h2>
         <ul style="list-style:none;padding:0;margin:0;display:grid;gap:.5rem">
           ${row("llm", "Coach (LLM)")}${row("stt", "Speech recognition")}${row("tts", "Coach voice")}
@@ -401,6 +521,22 @@ async function renderSettings() {
       toast("Saved.");
     } catch (err) { toast(err.message); }
   });
+  const showMemory = (facts) => {
+    const list = document.getElementById("memory-list");
+    list.innerHTML = facts.length
+      ? facts.map((f) => `<li><span>${esc(f.text)}</span><button class="icon-btn" data-id="${f.id}" aria-label="Forget this">✕</button></li>`).join("")
+      : `<li class="muted small">Nothing yet. Chat with Sam and tell it about yourself.</li>`;
+    document.getElementById("forget-all").hidden = !facts.length;
+  };
+  showMemory((await getJSON("/api/memory")).facts);
+  document.getElementById("memory-list").addEventListener("click", async (e) => {
+    const b = e.target.closest("button[data-id]");
+    if (b) showMemory((await (await api(`/api/memory/${b.dataset.id}`, { method: "DELETE" })).json()).facts);
+  });
+  document.getElementById("forget-all").addEventListener("click", async () => {
+    showMemory((await (await api("/api/memory", { method: "DELETE" })).json()).facts);
+    toast("Sam has forgotten everything.");
+  });
 }
 
 // ---------- boot ----------
@@ -412,6 +548,8 @@ async function boot() {
     return;
   }
   refreshStatus();
+  document.getElementById("sidebar").hidden = false;
+  refreshSidebar();
   window.addEventListener("hashchange", route);
   if (!location.hash) location.hash = state.profile ? "#/home" : "#/welcome";
   else route();
