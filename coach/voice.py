@@ -36,7 +36,7 @@ from typing import Callable, Iterator, Protocol
 
 from .errors import Unavailable
 from .session import Session
-from .text_stream import SentenceChunker
+from .text_stream import SentenceChunker, speakable
 
 
 class SpeechToText(Protocol):
@@ -114,4 +114,5 @@ class VoicePipeline:
         return {"type": "audio", "index": index, "text": sentence, "wav": wav}
 
     def _synth(self, text: str) -> bytes | None:
-        return self.tts.synthesize(text, self.voice) if self.tts else None
+        # The tutor may format with **bold** or "- " lists; speak only the words.
+        return self.tts.synthesize(speakable(text), self.voice) if self.tts else None

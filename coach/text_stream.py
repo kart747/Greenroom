@@ -66,3 +66,14 @@ class SentenceChunker:
         if len(word) == 1 and word.isalpha() and word != "i":
             return True
         return word in ABBREVIATIONS
+
+
+_MARKUP = re.compile(r"\*\*|__|`|^\s*[-*•]\s+|^\s*#+\s*", re.MULTILINE)
+
+
+def speakable(text: str) -> str:
+    """Remove the light markdown the tutor may use (**bold**, "- " list
+    bullets) so the voice doesn't read out symbols. The tutor writes a
+    correction as  You said "x" -> **y**,  which should sound like
+    'You said "x". Better: y'."""
+    return _MARKUP.sub("", text).replace(" -> ", ". Better: ").replace("->", ". Better: ").strip()
