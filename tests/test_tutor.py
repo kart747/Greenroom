@@ -106,6 +106,12 @@ def test_speakable_strips_markdown():
     assert speakable('You said "goed" -> **went**.\n- I went home.') == 'You said "goed". Better: went.\nI went home.'
 
 
+def test_speakable_strips_emojis_and_arrow_bullets():
+    assert speakable("Great question! 😊") == "Great question!"
+    assert speakable("Example:\n→ I have lived here **for** 5 years.") == "Example:\nI have lived here for 5 years."
+    assert speakable('You said "do the needful" → **do what is needed**.') == 'You said "do the needful". Better: do what is needed.'
+
+
 # ---- the tutor chat end to end ---------------------------------------------------
 def test_tutor_chat_feedback_tools_end_and_resume(env):
     c, llm, storage, _ = env

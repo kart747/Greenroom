@@ -69,11 +69,19 @@ class SentenceChunker:
 
 
 _MARKUP = re.compile(r"\*\*|__|`|^\s*[-*•]\s+|^\s*#+\s*", re.MULTILINE)
+# Emoji and pictographs: some models add them even when told not to, and a
+# voice would read them out ("smiling face").
+_EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u200D]+")
+_LEADING_ARROW = re.compile(r"^\s*(?:→|->)\s*", re.MULTILINE)
+_ARROW = re.compile(r"\s*(?:→|->)\s*")
 
 
 def speakable(text: str) -> str:
-    """Remove the light markdown the tutor may use (**bold**, "- " list
-    bullets) so the voice doesn't read out symbols. The tutor writes a
-    correction as  You said "x" -> **y**,  which should sound like
-    'You said "x". Better: y'."""
-    return _MARKUP.sub("", text).replace(" -> ", ". Better: ").replace("->", ". Better: ").strip()
+    """Remove what shouldn't be read aloud: the light markdown the tutor may
+    use (**bold**, "- " list bullets), emojis, and arrows. An arrow at the start
+    of a line is a bullet (dropped); between two phrases it is a correction,
+    You said "x" -> **y**, which should sound like 'You said "x". Better: y'."""
+    text = _EMOJI.sub("", text)
+    text = _MARKUP.sub("", text)
+    text = _LEADING_ARROW.sub("", text)
+    return _ARROW.sub(". Better: ", text).strip()
