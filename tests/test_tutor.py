@@ -99,10 +99,10 @@ def test_speakable_strips_markdown():
 # ---- the tutor chat end to end ---------------------------------------------------
 def test_tutor_chat_feedback_tools_end_and_resume(env):
     c, llm, storage, _ = env
+    c.put("/api/profile", json={**PROFILE, "chat_feedback": "tutor_only"})
     start = c.post("/api/sessions", json={"mode": "tutor"}).json()
     assert start["mode"] == "tutor" and start["opening"]["text"].startswith("Hi Asha!")
     sid = start["id"]
-    system = llm.seen == [] and None
     ev = events(c.post(f"/api/sessions/{sid}/turn", data={"text": "I am having two years experience, it was very good."}))
     assert ev[-1]["type"] == "done"
     assert "About the learner" in llm.seen[0][0]["content"]        # memory reached the tutor
@@ -137,14 +137,44 @@ def test_tutor_chat_feedback_tools_end_and_resume(env):
     assert len(c.get("/api/conversations").json()) == 1           # updated, not duplicated
 
 
-def test_roleplay_has_no_in_chat_corrections(env):
+def test_in_chat_feedback_follows_the_learners_choice(env):
+    """The learner chooses: after the session / only with Sam / gentle / all.
+    Feedback is a marker on the learner's own message; characters never say it."""
     c, *_ = env
-    sid = c.post("/api/sessions", json={"persona_id": "hr_interviewer"}).json()["id"]
-    events(c.post(f"/api/sessions/{sid}/turn", data={"text": "It was very good."}))
-    assert c.get(f"/api/sessions/{sid}/feedback").status_code == 409
-    assert c.post(f"/api/sessions/{sid}/better", json={"text": "x"}).status_code == 409
-    assert len(c.post(f"/api/sessions/{sid}/hint").json()["suggestions"]) == 3   # hints are fine
-    db_id = c.post(f"/api/sessions/{sid}/end").json()["id"]
+    text = "Umm the food was very good and the hotel was nice."
+    sids = {}
+    for mode, body in (("tutor", {"mode": "tutor"}), ("roleplay", {"persona_id": "hr_interviewer"})):
+        sids[mode] = c.post("/api/sessions", json=body).json()["id"]
+        events(c.post(f"/api/sessions/{sids[mode]}/turn", data={"text": text}))
+    c.put("/api/profile", json={**PROFILE, "chat_feedback": "all"})
+    for sid in sids.values():
+        wait_feedback(c, sid, 1)                     # analysis finished for both chats
+
+    def markers(policy, mode):
+        c.put("/api/profile", json={**PROFILE, "chat_feedback": policy})
+        r = c.get(f"/api/sessions/{sids[mode]}/feedback").json()
+        assert r["policy"] == policy
+        return [[f["text"] for f in t["findings"]] for t in r["turns"]]
+
+    everything = markers("all", "tutor")
+    assert {"Umm", "very good", "nice"} <= set(everything[0])
+    assert markers("all", "roleplay") == everything
+    assert markers("after", "tutor") == [] and markers("after", "roleplay") == []
+    assert markers("tutor_only", "tutor") == everything and markers("tutor_only", "roleplay") == []
+    # gentle: only the most important finding; a weak phrase matters more than "Umm"
+    assert markers("gentle", "tutor") == [["very good"]] == markers("gentle", "roleplay")
+
+    # "Say it better" is a correction: in a roleplay only when feedback is on for every chat
+    c.put("/api/profile", json={**PROFILE, "chat_feedback": "tutor_only"})
+    assert c.post(f"/api/sessions/{sids['roleplay']}/better", json={"text": "x"}).status_code == 409
+    assert c.post(f"/api/sessions/{sids['tutor']}/better", json={"text": "x"}).status_code == 200
+    c.put("/api/profile", json={**PROFILE, "chat_feedback": "gentle"})
+    assert c.post(f"/api/sessions/{sids['roleplay']}/better", json={"text": "x"}).status_code == 200
+    assert len(c.post(f"/api/sessions/{sids['roleplay']}/hint").json()["suggestions"]) == 3   # hints always
+    assert c.put("/api/profile", json={**PROFILE, "chat_feedback": "loud"}).status_code == 422
+
+    # roleplays still end with a report and can't be resumed
+    db_id = c.post(f"/api/sessions/{sids['roleplay']}/end").json()["id"]
     assert c.post("/api/sessions", json={"resume_id": db_id}).status_code == 409
 
 

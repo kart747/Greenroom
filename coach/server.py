@@ -14,9 +14,10 @@ API overview (all JSON unless noted):
   POST /api/sessions/{id}/turn      one turn (typed text or uploaded audio) -> NDJSON stream
   POST /api/sessions/{id}/abort     barge-in: stop the coach's current reply
   POST /api/sessions/{id}/end       finish: report, saved to the database
-  GET  /api/sessions/{id}/feedback  tutor only: findings for the turns analyzed so far
+  GET  /api/sessions/{id}/feedback  findings for the turns analyzed so far, filtered by the
+                                    learner's "in-chat feedback" setting (see FEEDBACK_POLICIES)
   POST /api/sessions/{id}/hint      "What could I say?" (3 suggestions)
-  POST /api/sessions/{id}/better   tutor only: "Say it better"
+  POST /api/sessions/{id}/better   "Say it better" (wherever in-chat feedback is allowed)
   POST /api/define                  meaning of a word in its sentence
   POST /api/speak                   any text -> WAV (replay a message, hear a better version)
   GET  /api/memory, DELETE /api/memory[/{id}]   what the tutor remembers; forget it
@@ -70,6 +71,21 @@ WEB_DIR = Path(__file__).resolve().parents[1] / "web"
 LEVELS = ["A2", "B1", "B2", "C1"]
 ACCENTS = ["american", "british", "auto"]
 
+# In-chat feedback: the learner chooses (Settings, or the switch in the chat).
+# Feedback is always a marker on the learner's OWN message, computed by the
+# background analyzers. Roleplay characters never break character to correct,
+# whatever the setting; the tutor's own spoken corrections are separate
+# (profile["tutor_corrections"]).
+FEEDBACK_POLICIES = {
+    "after": "Only in the report after the session",
+    "tutor_only": "Markers in chats with Sam only",
+    "gentle": "The most important mistake per message, in every chat",
+    "all": "Every mistake, in every chat",
+}
+# For "gentle": which single finding matters most. Grammar errors change
+# meaning; weak words and fillers are style.
+IMPORTANCE = {"grammar": 0, "intensified_basic": 1, "basic_word": 2, "repetition": 3, "filler_phrase": 4, "filler": 5}
+
 
 @dataclass
 class LiveSession:
@@ -91,7 +107,8 @@ class ProfileIn(BaseModel):
     accent: str = "auto"
     destination: str | None = None
     silence_ms: int = 1200      # hands-free: how long a pause ends the learner's turn
-    tutor_corrections: str = "gentle"   # gentle / thorough / off (Tutor mode only)
+    tutor_corrections: str = "gentle"   # gentle / thorough / off (what Sam says, Tutor mode only)
+    chat_feedback: str = "after"        # markers on the learner's messages, see FEEDBACK_POLICIES
 
 
 class StartIn(BaseModel):
@@ -143,7 +160,8 @@ def create_app(cfg: dict, engines: Engines, storage: Storage,
 
     @app.get("/api/profile")
     def get_profile():
-        return {"profile": storage.get_profile(), "goals": GOALS, "levels": LEVELS, "accents": ACCENTS}
+        return {"profile": storage.get_profile(), "goals": GOALS, "levels": LEVELS, "accents": ACCENTS,
+                "chat_feedback": FEEDBACK_POLICIES}
 
     @app.put("/api/profile")
     def set_profile(p: ProfileIn):
@@ -155,6 +173,8 @@ def create_app(cfg: dict, engines: Engines, storage: Storage,
             raise HTTPException(422, "Silence threshold must be between 400 and 5000 ms.")
         if p.tutor_corrections not in TUTOR_CORRECTIONS:
             raise HTTPException(422, "Tutor corrections must be gentle, thorough or off.")
+        if p.chat_feedback not in FEEDBACK_POLICIES:
+            raise HTTPException(422, "Unknown in-chat feedback setting.")
         data = p.model_dump()
         data["name"] = data["name"].strip()
         storage.set_profile(data)
@@ -273,10 +293,22 @@ def create_app(cfg: dict, engines: Engines, storage: Storage,
     @app.get("/api/sessions/{sid}/feedback")
     def feedback(sid: str, since: int = 0):
         ls = _live(sid)
-        if ls.session.mode != "tutor":
-            # The learner's rule: roleplay characters never correct mid-conversation.
-            raise HTTPException(409, "In-chat feedback is only for Tutor chats.")
-        return {"turns": ls.session.ready_feedback(since)}
+        policy = _policy()
+        if not _feedback_allowed(ls, policy):
+            return {"policy": policy, "turns": []}
+        turns = ls.session.ready_feedback(since)
+        if policy == "gentle":
+            for t in turns:
+                t["findings"] = sorted(t["findings"], key=lambda f: IMPORTANCE.get(f["kind"], 9))[:1]
+        return {"policy": policy, "turns": turns}
+
+    def _policy() -> str:
+        return (storage.get_profile() or {}).get("chat_feedback", "after")
+
+    def _feedback_allowed(ls: LiveSession, policy: str) -> bool:
+        if policy in ("gentle", "all"):
+            return True
+        return policy == "tutor_only" and ls.session.mode == "tutor"
 
     @app.post("/api/sessions/{sid}/hint")
     def hint(sid: str):
@@ -286,8 +318,10 @@ def create_app(cfg: dict, engines: Engines, storage: Storage,
     @app.post("/api/sessions/{sid}/better")
     def better(sid: str, body: TextIn):
         ls = _live(sid)
-        if ls.session.mode != "tutor":
-            raise HTTPException(409, "\"Say it better\" is only for Tutor chats.")
+        # It's a correction the learner asks for: always fine with the tutor; in
+        # a roleplay only if they chose in-chat feedback for every chat.
+        if ls.session.mode != "tutor" and not _feedback_allowed(ls, _policy()):
+            raise HTTPException(409, "In this chat, feedback comes after the session (see Settings).")
         return _llm_call(tutor_tools.say_better, engines.llm, body.text, ls.session.level)
 
     @app.post("/api/define")
