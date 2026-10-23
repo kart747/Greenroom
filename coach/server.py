@@ -27,6 +27,7 @@ API overview (all JSON unless noted):
   GET  /api/progress                trends over all sessions
   GET  /api/review/due              flashcards due now
   POST /api/review/{card_id}        grade a card (0/3/4/5), reschedules it with SM-2
+  POST /api/review/{card_id}/check  say (audio) or type the answer; checked by coach/drills.py
 
 Why the turn endpoint streams NDJSON (one JSON object per line): the browser
 can act on each event as soon as it arrives (show the transcript, play the
@@ -55,7 +56,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import memory, scenarios, srs, tutor_tools
+from . import drills, memory, scenarios, srs, tutor_tools
 from .analyzers import default_analyzers
 from .engines import Engines
 from .errors import Unavailable
@@ -407,6 +408,22 @@ def create_app(cfg: dict, engines: Engines, storage: Storage,
     def review_due():
         return {"cards": storage.due_cards()}
 
+    @app.post("/api/review/{card_id}/check")
+    def check_card(card_id: int, text: str | None = Form(None), audio: UploadFile | None = File(None)):
+        card = storage.get_card(card_id)
+        if card is None:
+            raise HTTPException(404, "No such card.")
+        if audio is not None:
+            if engines.stt is None:
+                raise HTTPException(503, "Voice input is off. Type your answer instead.")
+            try:
+                text = engines.stt.transcribe_bytes(audio.file.read())
+            except ValueError as err:
+                raise HTTPException(422, str(err)) from err
+        if not (text and text.strip()):
+            return {"heard": "", "correct": False, "expected": "", "why": "I didn't catch that. Try again."}
+        return {"heard": text.strip(), **drills.check(card, text)}
+
     @app.post("/api/review/{card_id}")
     def grade_card(card_id: int, body: GradeIn):
         card = storage.get_card(card_id)
@@ -479,17 +496,18 @@ def _title(record: dict, persona: Persona) -> str:
 
 
 def _make_cards(storage: Storage, record: dict) -> None:
-    """Every flagged vocabulary span becomes a flashcard (or refreshes its
-    example if the card already exists). The learner's own sentence is the
-    example, so the card reminds them where they used the weak word."""
+    """Flagged vocabulary spans and grammar errors become flashcards (an
+    existing card keeps its schedule and gets the newest example). The
+    learner's own sentence is the example, so the card reminds them where
+    they made the mistake, and in Review they practise saying it right."""
     for turn in record["turns"]:
         for res in turn["results"]:
-            if res["analyzer"] != "vocabulary":
-                continue
             for f in res["findings"]:
-                if f["suggestions"]:
+                if res["analyzer"] == "vocabulary" and f["suggestions"]:
                     storage.add_card(f["text"], {"suggestions": f["suggestions"], "message": f["message"],
                                                  "example": turn["text"], "kind": f["kind"]})
+                elif res["analyzer"] == "grammar":
+                    storage.add_card(*drills.grammar_card(f, turn["text"]))
 
 
 def _encode(ev: dict) -> dict:
